@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SerbestEl — Öğrenme Sayfası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#F4F5F6; --surface:#FFFFFF; --surface-2:#E9EBEC;
+    --ink:#14171A; --ink-2:#4F585F; --ink-3:#848E95;
+    --line:#DBDEE0; --line-2:#C2C7CA;
+    --acc:#0E6E78; --acc-soft:#E0F0F1;
+    --sig:#C4622A; --sig-soft:#F8EDE4;
+    --ok:#1D7A4C; --bad:#A63A32;
+    --disp:"Outfit","Segoe UI",system-ui,sans-serif;
+    --body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0D1012; --surface:#15191C; --surface-2:#1D2226;
+      --ink:#E8EBED; --ink-2:#9DA6AC; --ink-3:#767F86;
+      --line:#232A2E; --line-2:#323A3F;
+      --acc:#46B8C2; --acc-soft:#0D2225;
+      --sig:#E08B50; --sig-soft:#2A1C12;
+      --ok:#4BBE86; --bad:#E0776D;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0D1012; --surface:#15191C; --surface-2:#1D2226;
+    --ink:#E8EBED; --ink-2:#9DA6AC; --ink-3:#767F86;
+    --line:#232A2E; --line-2:#323A3F;
+    --acc:#46B8C2; --acc-soft:#0D2225;
+    --sig:#E08B50; --sig-soft:#2A1C12;
+    --ok:#4BBE86; --bad:#E0776D;
+  }
+  *{box-sizing:border-box}
+  html{color-scheme:light dark; scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--body); font-size:16px; line-height:1.65}
+  img{max-width:100%}
+  .wrap{max-width:1000px; margin:0 auto; padding-inline:18px; padding-block:0 72px}
+  h1,h2,h3,h4{font-family:var(--disp); margin:0; text-wrap:balance; letter-spacing:-.015em}
+  h1{font-size:clamp(1.9rem,5.5vw,2.9rem); font-weight:700; line-height:1.03}
+  h2{font-size:clamp(1.2rem,2.8vw,1.45rem); font-weight:600}
+  h3{font-size:1rem; font-weight:600}
+  h4{font-size:.9rem; font-weight:600; color:var(--ink)}
+  p{margin:0; max-width:70ch}
+  a{color:var(--acc)}
+  code{font-family:var(--mono); font-size:.87em; background:var(--surface-2); padding:1px 5px; border-radius:3px}
+  .lbl{font-family:var(--mono); font-size:.67rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3)}
+
+  header{padding-block:44px 20px; display:flex; flex-direction:column; gap:12px; border-bottom:2px solid var(--ink)}
+  .nav{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
+  .nav a{font-family:var(--mono); font-size:.74rem; text-decoration:none; border:1px solid var(--line-2); padding:6px 10px; border-radius:2px; color:var(--ink-2); background:var(--surface)}
+  .nav a:hover{border-color:var(--acc); color:var(--acc)}
+  .nav a.act{background:var(--acc); border-color:var(--acc); color:var(--bg)}
+
+  .icindekiler{margin-top:26px; border:1px solid var(--line); border-radius:3px; background:var(--surface); padding:15px 17px}
+  .icindekiler h3{margin-bottom:9px}
+  .icindekiler ol{margin:0; padding-left:20px; display:grid; gap:5px; font-size:.93rem}
+  .icindekiler a{text-decoration:none}
+  .icindekiler a:hover{text-decoration:underline}
+  .bek{color:var(--ink-3); font-style:italic}
+
+  .konu{margin-top:34px; border:1px solid var(--line); border-radius:3px; background:var(--surface); overflow:hidden; scroll-margin-top:14px}
+  .kbas{display:flex; gap:13px; align-items:flex-start; padding:15px 18px; border-bottom:1px solid var(--line); background:var(--surface-2)}
+  .kno{font-family:var(--mono); font-size:.78rem; color:var(--bg); background:var(--acc); border-radius:2px; padding:5px 9px; white-space:nowrap; margin-top:2px}
+  .kbas h2{flex:1}
+  .kfaz{font-family:var(--mono); font-size:.7rem; color:var(--ink-3); white-space:nowrap; margin-top:6px}
+  .kgov{padding:17px 18px; display:flex; flex-direction:column; gap:15px}
+  .kgov > p{color:var(--ink-2); font-size:.96rem}
+
+  .blok{display:flex; flex-direction:column; gap:7px}
+  .blok h4{font-family:var(--mono); font-size:.65rem; letter-spacing:.11em; text-transform:uppercase; color:var(--acc); font-weight:600}
+  .blok p{font-size:.95rem; color:var(--ink-2)}
+  .blok b{color:var(--ink)}
+  .blok ul{margin:0; padding-left:19px; font-size:.94rem; color:var(--ink-2); display:grid; gap:4px}
+
+  pre{background:var(--surface-2); border:1px solid var(--line); border-radius:3px; padding:12px 14px; overflow-x:auto; font-family:var(--mono); font-size:.81rem; line-height:1.7; color:var(--ink-2); margin:0}
+  pre b{color:var(--ink); font-weight:500}
+  pre i{color:var(--ink-3); font-style:normal}
+
+  table{border-collapse:collapse; width:100%; font-size:.91rem}
+  th{font-family:var(--mono); font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); text-align:left; font-weight:500; padding:0 10px 6px 0; border-bottom:1px solid var(--line-2)}
+  td{padding:8px 10px 8px 0; border-bottom:1px solid var(--line); color:var(--ink-2); vertical-align:top}
+  td:first-child{color:var(--ink); font-weight:500}
+  .tbl{overflow-x:auto}
+  .sec{color:var(--ok); font-weight:600}
+  .ele{color:var(--bad)}
+
+  .kutu{border-left:3px solid var(--acc); background:var(--acc-soft); padding:11px 14px; border-radius:0 3px 3px 0; font-size:.93rem; color:var(--ink-2)}
+  .kutu b{color:var(--ink)}
+  .kutu .kt{font-family:var(--mono); font-size:.62rem; letter-spacing:.11em; text-transform:uppercase; font-weight:600; color:var(--acc); display:block; margin-bottom:3px}
+  .tuzak{border-left:3px solid var(--sig); background:var(--sig-soft); padding:11px 14px; border-radius:0 3px 3px 0; font-size:.93rem; color:var(--ink-2)}
+  .tuzak b{color:var(--ink)}
+  .tuzak .kt{font-family:var(--mono); font-size:.62rem; letter-spacing:.11em; text-transform:uppercase; font-weight:600; color:var(--sig); display:block; margin-bottom:3px}
+
+  svg{display:block; width:100%; height:auto}
+  .cizim{border:1px solid var(--line); border-radius:3px; padding:14px; background:var(--surface)}
+  .cap{font-family:var(--mono); font-size:.71rem; color:var(--ink-3); margin-top:9px}
+
+  footer{margin-top:46px; padding-block:22px; border-top:1px solid var(--line); font-family:var(--mono); font-size:.74rem; color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="lbl">SerbestEl · çalışma ve tekrar sayfası</span>
+  <h1>Öğrenme Sayfası</h1>
+  <p style="color:var(--ink-2)">Projede kullanılan her yöntem burada anlatılıyor: <b>ne seçildi, neden seçildi, benzerleri neden seçilmedi</b>, arkasındaki matematik nasıl çalışıyor, nerede tuzak var. Proje ilerledikçe konular ekleniyor.</p>
+  <div class="nav">
+    <a href="index.html">Proje özeti</a>
+    <a href="yol-haritasi.html">Yol haritası</a>
+    <a href="ogrenme.html" class="act">Öğrenme sayfası</a>
+  </div>
+</header>
+
+<div class="icindekiler">
+  <h3>İçindekiler</h3>
+  <ol>
+    <li><a href="#k1">Dönüşüm matrisleri ve homojen koordinatlar</a></li>
+    <li><a href="#k2">Koordinat sistemleri ve kalibrasyon</a></li>
+    <li><a href="#k3">Dönme nasıl temsil edilir — ve ağa hangisi verilir</a></li>
+    <li><a href="#k4">Sürüklenme: hata neden birikir</a></li>
+    <li><a href="#k5">Omurga ağ seçimi: neden EfficientNet</a></li>
+    <li><a href="#k6">Kayıp fonksiyonu: parametre mi, nokta mı</a></li>
+    <li><a href="#k7">Veri sızıntısı ve denek bazlı bölme</a></li>
+    <li><a href="#k8">4 GB ekran kartında eğitim</a></li>
+    <li><a href="#k9">PyTorch3D: ne işe yarıyor, neden korkulduğu kadar sorun değil</a></li>
+    <li><a href="#k10">CUDA sürüm zinciri nasıl okunur</a></li>
+    <li><a href="#k11">WSL2 nedir, Linux'ta paket kurmak neden kolay</a></li>
+    <li><a href="#k12">fork ve spawn: aynı kod Linux'ta çalışıp Windows'ta neden çöküyor</a></li>
+    <li class="bek">Faz ilerledikçe eklenecek…</li>
+  </ol>
+</div>
+
+<!-- ============ KONU 1 ============ -->
+<div class="konu" id="k1">
+  <div class="kbas"><span class="kno">01</span><h2>Dönüşüm matrisleri ve homojen koordinatlar</h2><span class="kfaz">Faz 1</span></div>
+  <div class="kgov">
+    <p>Verideki her kare bir <code>[4,4]</code> matrisle geliyor. Bu matrisin ne olduğunu anlamadan projede tek adım atılamaz.</p>
+
+    <div class="blok">
+      <h4>Problem</h4>
+      <p>Uzayda bir noktayı <b>döndürmek</b> bir çarpma işlemi, <b>ötelemek</b> ise bir toplama işlemi. İkisi farklı türde işlem olduğu için arka arkaya uygulanınca hesap dağılıyor. Bir dizi hareketi tek bir işlemde birleştirmek zorlaşıyor.</p>
+    </div>
+
+    <div class="blok">
+      <h4>Çözüm: bir boyut ekle</h4>
+      <p>Noktayı <code>(x, y, z)</code> yerine <code>(x, y, z, 1)</code> olarak yaz. Şimdi öteleme de bir matris çarpımına dönüşüyor. Matris şöyle bölünüyor:</p>
+      <pre>T = <b>[ R  t ]</b>      R : 3×3 dönme matrisi
+    <b>[ 0  1 ]</b>      t : 3×1 öteleme vektörü (mm)</pre>
+      <p style="margin-top:7px">Sol üstteki 3×3 blok nesneyi döndürüyor, sağdaki sütun kaydırıyor, alt satır <code>[0 0 0 1]</code> sadece boyutu tamamlıyor.</p>
+    </div>
+
+    <div class="blok">
+      <h4>Neden bu projede kritik</h4>
+      <ul>
+        <li>Art arda hareketler <b>çarpımla</b> birleşiyor: <code>T_toplam = T3 · T2 · T1</code></li>
+        <li>Bir hareketin tersi matrisin tersi: <code>T⁻¹</code></li>
+        <li>Kare 1'den kare 100'e gitmek için aradaki 99 matrisi çarpıyorsun — <b>sürüklenmenin matematiksel sebebi tam olarak bu çarpım zinciri</b></li>
+      </ul>
+    </div>
+
+    <div class="cizim">
+      <svg viewBox="0 0 720 180" role="img" aria-label="Ardışık dönüşüm matrislerinin çarpılarak birleşmesi">
+        <g font-family="IBM Plex Mono, monospace" font-size="12">
+          <rect x="20" y="60" width="72" height="46" rx="3" fill="var(--surface-2)" stroke="var(--line-2)" stroke-width="1.5"/>
+          <text x="56" y="88" fill="var(--ink)" text-anchor="middle">kare 1</text>
+          <line x1="96" y1="83" x2="150" y2="83" stroke="var(--acc)" stroke-width="2"/>
+          <polygon points="156,83 144,78 144,88" fill="var(--acc)"/>
+          <text x="126" y="72" fill="var(--acc)" font-size="11" text-anchor="middle">T₁</text>
+          <rect x="160" y="60" width="72" height="46" rx="3" fill="var(--surface-2)" stroke="var(--line-2)" stroke-width="1.5"/>
+          <text x="196" y="88" fill="var(--ink)" text-anchor="middle">kare 2</text>
+          <line x1="236" y1="83" x2="290" y2="83" stroke="var(--acc)" stroke-width="2"/>
+          <polygon points="296,83 284,78 284,88" fill="var(--acc)"/>
+          <text x="266" y="72" fill="var(--acc)" font-size="11" text-anchor="middle">T₂</text>
+          <rect x="300" y="60" width="72" height="46" rx="3" fill="var(--surface-2)" stroke="var(--line-2)" stroke-width="1.5"/>
+          <text x="336" y="88" fill="var(--ink)" text-anchor="middle">kare 3</text>
+          <text x="392" y="88" fill="var(--ink-3)" font-size="13">· · ·</text>
+          <line x1="420" y1="83" x2="474" y2="83" stroke="var(--acc)" stroke-width="2"/>
+          <polygon points="480,83 468,78 468,88" fill="var(--acc)"/>
+          <text x="448" y="72" fill="var(--acc)" font-size="11" text-anchor="middle">T₉₉</text>
+          <rect x="484" y="60" width="82" height="46" rx="3" fill="var(--surface-2)" stroke="var(--line-2)" stroke-width="1.5"/>
+          <text x="525" y="88" fill="var(--ink)" text-anchor="middle">kare 100</text>
+
+          <path d="M56 120 L56 142 L525 142 L525 120" fill="none" stroke="var(--sig)" stroke-width="1.5"/>
+          <text x="290" y="162" fill="var(--sig)" font-size="12" text-anchor="middle">T_toplam = T₉₉ · … · T₂ · T₁   ← 99 çarpım, 99 hata</text>
+        </g>
+      </svg>
+      <p class="cap">Model her ok için bir matris tahmin ediyor. Küresel konum bu matrislerin çarpımı — bu yüzden tek bir adımdaki hata sonuna kadar taşınıyor.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">Klasik tuzak</span>
+      <b>Çarpım sırası.</b> Matris çarpımı değişmeli değil: <code>A·B ≠ B·A</code>. Sırayı yanlış yazarsan kod hata vermez, <b>sessizce yanlış sonuç üretir.</b> Kontrol yöntemi: bir kareyi ileri götür, sonra tersiyle geri getir — başladığın yere dönmüyorsa sıra yanlış.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 2 ============ -->
+<div class="konu" id="k2">
+  <div class="kbas"><span class="kno">02</span><h2>Koordinat sistemleri ve kalibrasyon</h2><span class="kfaz">Faz 1</span></div>
+  <div class="kgov">
+    <p>Bu projede dört ayrı koordinat sistemi var ve hepsi birbirine dönüşüyor. Karıştırırsan her şey sessizce bozulur.</p>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Sistem</th><th>Birim</th><th>Ne anlatıyor</th></tr></thead>
+      <tbody>
+        <tr><td>Görüntü</td><td>piksel</td><td>Ultrason karesindeki satır-sütun konumu</td></tr>
+        <tr><td>Prob</td><td>mm</td><td>Probun kendi eksen takımı — probun ucu neresi, hüzme hangi yöne gidiyor</td></tr>
+        <tr><td>İzleyici</td><td>mm</td><td>Optik izleyicinin gördüğü sabit dünya</td></tr>
+        <tr><td>İlk kare</td><td>mm</td><td>Küresel ölçümün referansı — hacmin oturduğu çerçeve</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4>Kalibrasyon matrisi ne yapıyor</h4>
+      <p><code>calib_matrix.csv</code> dosyası, <b>görüntü ile prob arasındaki köprü.</b> Görüntüdeki bir pikselin, probun eksen takımında kaç milimetre nerede olduğunu söylüyor. Bu olmadan piksel koordinatı fiziksel konuma çevrilemez.</p>
+      <p>Zincir şöyle işliyor:</p>
+      <pre>piksel → <b>kalibrasyon</b> → prob → <b>izleyici matrisi</b> → dünya</pre>
+    </div>
+
+    <div class="tuzak"><span class="kt">Tuzak</span>
+      Kalibrasyonun <b>hangi yönde</b> tanımlandığını doğrula: görüntüden proba mı, probdan görüntüye mi? Ters yönde çarparsan hacim ayna görüntüsü ya da yanlış ölçekte çıkar. Doğrulama yolu Faz 1'deki kontrol adımı: <b>sadece gerçek dönüşümlerle hacmi kur</b>, anatomik olarak makul görünüyorsa zincir doğrudur.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 3 ============ -->
+<div class="konu" id="k3">
+  <div class="kbas"><span class="kno">03</span><h2>Dönme nasıl temsil edilir — ve ağa hangisi verilir</h2><span class="kfaz">Faz 2 · 4</span></div>
+  <div class="kgov">
+    <p>Ağ her kare çifti için bir dönme tahmin edecek. Ama dönmeyi sayıya dökmenin birden fazla yolu var ve <b>seçim doğruluğu doğrudan etkiliyor.</b> Bu, projenin savunabileceğin ilk gerçek tasarım kararı.</p>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Temsil</th><th>Sayı</th><th>Artı</th><th>Eksi</th></tr></thead>
+      <tbody>
+        <tr><td>Euler açıları</td><td>3</td><td>Anlaması kolay, insan okuyabilir</td><td><b class="ele">Süreksiz</b> ve gimbal kilidi var — ağ için regresyonu zor</td></tr>
+        <tr><td>Kuaterniyon</td><td>4</td><td>Gimbal kilidi yok, birleştirmesi kolay</td><td><b class="ele">q ve −q aynı dönme</b> — ağ hangisini öğreneceğini bilemiyor</td></tr>
+        <tr><td>Dönme matrisi</td><td>9</td><td>Doğrudan kullanılabilir</td><td>Ortogonal olma şartı var, ağ bunu kendiliğinden tutturamaz</td></tr>
+        <tr><td><b class="sec">6B sürekli temsil</b></td><td>6</td><td><b class="sec">Sürekli</b> — sinir ağı regresyonu için tasarlandı, süreksizlik yok</td><td>Anlaması biraz daha soyut</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4>Süreksizlik neden problem</h4>
+      <p>Sinir ağı sürekli bir fonksiyon öğreniyor: girdi az değişince çıktı az değişmeli. Euler açılarında ve kuaterniyonlarda <b>uzayda öyle noktalar var ki, dönme çok az değişirken temsil aniden sıçrıyor</b> (mesela açı 359°'den 1°'ye atlıyor). Ağ bu sıçramayı öğrenemez, o bölgelerde sistematik hata yapar.</p>
+      <p>6B sürekli temsilde bu sıçrama yok. Ağ 6 sayı üretiyor, bunlar dikleştirilerek geçerli bir dönme matrisine çevriliyor — yani <b>ağın çıktısı ne olursa olsun sonuç geçerli bir dönme.</b></p>
+    </div>
+
+    <div class="blok">
+      <h4>Bu projede ne yapılacak</h4>
+      <p>Referans sistem 6 serbestlik dereceli parametre ya da 4×4 matris üretiyor. Faz 4'te <b>temsil değişimi ayrı bir ablasyon satırı</b> olarak denenecek: aynı ağ, aynı veri, sadece dönme temsili farklı. Dört ölçüde kaç puan getirdiği ölçülecek.</p>
+    </div>
+
+    <div class="kutu"><span class="kt">Neden bu konu değerli</span>
+      Mülakatta \"dönmeyi ağa nasıl verdin\" diye sorulursa, <b>dört seçeneği ve neden birini seçtiğini anlatabilmek</b> seni model çağıran birinden ayırır. Üstelik iddiayı sayıyla destekliyorsun.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 4 ============ -->
+<div class="konu" id="k4">
+  <div class="kbas"><span class="kno">04</span><h2>Sürüklenme: hata neden birikir</h2><span class="kfaz">Faz 3</span></div>
+  <div class="kgov">
+    <p>Bu projenin tek gerçek düşmanı. Anlamadan çözülemez.</p>
+
+    <div class="blok">
+      <h4>Mekanizma</h4>
+      <p>Model <b>göreli</b> hareket tahmin ediyor: kare N ile N+1 arası. Küresel konumu bulmak için bu tahminler <b>çarpılarak</b> birleştiriliyor. Bir adımdaki hata düzeltilmiyor — sonraki bütün karelere taşınıyor.</p>
+      <p>Öteleme hataları yaklaşık toplanıyor. <b>Dönme hataları daha kötü:</b> erken bir açı hatası, sonraki bütün ötelemeleri yanlış yöne çeviriyor. Bu yüzden 1° 'lik bir dönme hatası, 30 cm ileride santimetrelerce kayma demek.</p>
+    </div>
+
+    <div class="cizim">
+      <svg viewBox="0 0 720 210" role="img" aria-label="Öteleme hatası doğrusal büyürken dönme hatasının katlanarak büyümesi">
+        <line x1="56" y1="176" x2="690" y2="176" stroke="var(--line-2)" stroke-width="1"/>
+        <line x1="56" y1="20" x2="56" y2="176" stroke="var(--line-2)" stroke-width="1"/>
+        <text x="48" y="28" fill="var(--ink-3)" font-family="IBM Plex Mono, monospace" font-size="10" text-anchor="end">hata</text>
+        <text x="690" y="196" fill="var(--ink-3)" font-family="IBM Plex Mono, monospace" font-size="10" text-anchor="end">kare sayısı</text>
+        <path d="M56 176 L690 118" fill="none" stroke="var(--acc)" stroke-width="2.5"/>
+        <path d="M56 176 C 300 172, 500 130, 690 30" fill="none" stroke="var(--sig)" stroke-width="2.5"/>
+        <text x="512" y="142" fill="var(--acc)" font-family="IBM Plex Mono, monospace" font-size="11">öteleme hatası — doğrusal</text>
+        <text x="430" y="62" fill="var(--sig)" font-family="IBM Plex Mono, monospace" font-size="11">dönme hatası — katlanarak</text>
+      </svg>
+      <p class="cap">Bu yüzden kısa taramada iyi görünen model, uzun taramada çöker. Küresel ölçü (GP, GL) tam olarak bunu yakalıyor.</p>
+    </div>
+
+    <div class="blok">
+      <h4>Saldırı yolları</h4>
+      <ul>
+        <li><b>Daha uzun bağlam:</b> tek kare çiftine değil, kare dizisine bak — gürültü ortalanır</li>
+        <li><b>Tutarlılık kısıtı:</b> ileri ve geri tahmin birbirini götürmeli; uzak kare çiftinin tahmini, aradaki adımların çarpımına eşit olmalı. <b>Ek etiket gerektirmiyor</b></li>
+        <li><b>Doğrudan küresel gözetim:</b> sadece komşu kareleri değil, ilk kareye göre konumu da kayıpta cezalandır</li>
+        <li><b>Belirsizlik:</b> model emin olmadığı adımlarda bunu söylesin, birleştirmede o adıma az güvenilsin</li>
+      </ul>
+    </div>
+
+    <div class="kutu"><span class="kt">Projenin iddiası burada kurulacak</span>
+      \"Daha iyi ağ eğittim\" zayıf bir cümle. <b>\"Sürüklenmeyi şu mekanizmayla şu kadar azalttım\"</b> güçlü bir cümle. Faz 3'ün hata analizi, hangi mekanizmanın hedefleneceğini söyleyecek.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 5 ============ -->
+<div class="konu" id="k5">
+  <div class="kbas"><span class="kno">05</span><h2>Omurga ağ seçimi: neden EfficientNet</h2><span class="kfaz">Faz 2</span></div>
+  <div class="kgov">
+    <p>Referans sistem <b>EfficientNet-B1</b> kullanıyor. Neden o, neden diğerleri değil?</p>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Aday</th><th>Artı</th><th>Bu projede eksi</th></tr></thead>
+      <tbody>
+        <tr><td><b class="sec">EfficientNet-B1</b></td><td>Parametre başına doğruluğu yüksek, ImageNet ön-eğitimli, <b>küçük kartta döner</b></td><td>—</td></tr>
+        <tr><td>ResNet-18 / 50</td><td>Basit, herkes biliyor, sağlam</td><td>Aynı doğruluk için daha çok parametre</td></tr>
+        <tr><td>ConvNeXt</td><td>Modern evrişim, güçlü</td><td>Daha ağır, 4 GB'de zorlanır</td></tr>
+        <tr><td>Görü transformatörü (ViT)</td><td>Büyük veride çok güçlü</td><td><b class="ele">Çok veri ister</b>, 164 bin kare az kalır; ayrıca yavaş</td></tr>
+        <tr><td>3B evrişim / video ağı</td><td>Zamansal bilgiyi doğrudan kullanır</td><td><b class="ele">Bellek patlar</b> — 4 GB'de imkânsız</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4>Kararın mantığı</h4>
+      <p>Bu problemde omurga ağın işi <b>iki kare arasındaki farkı görmek.</b> Bu, ImageNet sınıflandırmasından farklı bir iş ama düşük seviyeli özellikler (kenar, doku, benek deseni) ortak — bu yüzden ön-eğitimli ağırlıklar yine de işe yarıyor.</p>
+      <p>Asıl kısıt <b>bellek.</b> 4 GB kartta uzun kare dizisiyle çalışmak istiyorsan omurga küçük olmak zorunda. EfficientNet-B1 bu dengede oturuyor.</p>
+    </div>
+
+    <div class="kutu"><span class="kt">Ablasyon fikri</span>
+      Omurgayı değiştirip ölçmek ucuz bir deney: B0 / B1 / B3 ve ResNet-18. <b>\"Daha büyük omurga daha iyi sonuç vermedi\"</b> bulgusu da değerli bir sonuçtur — bu problemde darboğazın omurga olmadığını gösterir.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 6 ============ -->
+<div class="konu" id="k6">
+  <div class="kbas"><span class="kno">06</span><h2>Kayıp fonksiyonu: parametre mi, nokta mı</h2><span class="kfaz">Faz 4</span></div>
+  <div class="kgov">
+    <p>Ağı neye göre cezalandırdığın, neyi öğreneceğini belirliyor. İki seçenek var ve aralarındaki fark bu projede büyük.</p>
+
+    <div class="blok">
+      <h4>Seçenek A — parametre üzerinden kayıp</h4>
+      <p>Tahmin edilen 6 parametre ile gerçek 6 parametre arasındaki farkı al. <b>Basit ama yanıltıcı.</b></p>
+      <p>Sorun: parametre uzayı metrik değil. 1°'lik açı hatası ile 1 mm'lik öteleme hatası aynı sayıya karşılık geliyor ama <b>fiziksel etkileri bambaşka.</b> Üstelik açı hatasının etkisi, noktanın dönme merkezine uzaklığına bağlı — uzaktaki piksel çok kayar, yakındaki az.</p>
+    </div>
+
+    <div class="blok">
+      <h4>Seçenek B — nokta üzerinden kayıp <span class="sec">(tercih edilen)</span></h4>
+      <p>Tahmin edilen dönüşümü bir nokta kümesine uygula, gerçek dönüşümle de uygula, <b>noktaların konum farkını ölç.</b></p>
+      <pre><i># fikir, sözde kod</i>
+noktalar = kare_kosegenleri_veya_izgara()
+p_tahmin = <b>T_tahmin</b> @ noktalar
+p_gercek  = <b>T_gercek</b>  @ noktalar
+kayip = ortalama( |p_tahmin - p_gercek| )   <i># birim: mm</i></pre>
+      <p style="margin-top:8px">Üç avantajı var:</p>
+      <ul>
+        <li>Kayıp <b>milimetre</b> cinsinden — değerlendirme ölçüsüyle aynı birim</li>
+        <li>Dönme ve öteleme otomatik olarak doğru ağırlıkla dengeleniyor, elle katsayı ayarlamıyorsun</li>
+        <li>Dönme temsili ne olursa olsun çalışıyor — temsil değiştirmek kayıp fonksiyonunu bozmuyor</li>
+      </ul>
+    </div>
+
+    <div class="kutu"><span class="kt">Genel kural</span>
+      <b>Kaybı, değerlendirme ölçüsüne olabildiğince yaklaştır.</b> Değerlendirme milimetre cinsinden yer değiştirme ölçüyorsa, kayıp da milimetre ölçmeli. Aradaki her uyumsuzluk, eğitimin yanlış şeyi optimize etmesi demek.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 7 ============ -->
+<div class="konu" id="k7">
+  <div class="kbas"><span class="kno">07</span><h2>Veri sızıntısı ve denek bazlı bölme</h2><span class="kfaz">Faz 2</span></div>
+  <div class="kgov">
+    <p>Bu projede sonucu <b>yalan</b> yapabilecek tek hata bu. Ve fark edilmesi zor, çünkü skor <b>iyi</b> çıkıyor.</p>
+
+    <div class="blok">
+      <h4>Ne oluyor</h4>
+      <p>50 denek var, 100 tarama — yani her denekten iki tarama. Eğer bölmeyi <b>tarama bazında</b> yaparsan, aynı kolun bir taraması eğitimde, diğeri testte olabiliyor.</p>
+      <p>Model o kişinin damar yapısını, kas dokusunu, benek desenini ezberliyor. Test skoru parlıyor. <b>Ama yeni bir hastada çöküyor</b> — ve gerçek kullanım tam olarak yeni hasta demek.</p>
+    </div>
+
+    <div class="blok">
+      <h4>Doğru yöntem</h4>
+      <ul>
+        <li>Bölme <b>denek kimliğine</b> göre yapılır: bir deneğin bütün taramaları ya eğitimde ya testte</li>
+        <li>Bölünme dosyaya yazılır ve <b>sabitlenir</b> — her deneyde aynısı kullanılır</li>
+        <li>Sonuç raporlanırken bölme yöntemi açıkça yazılır</li>
+      </ul>
+    </div>
+
+    <div class="tuzak"><span class="kt">Kendini test et</span>
+      Bölmeyi denek bazına çevirdiğinde skorun <b>düşmeli.</b> Düşmüyorsa ya bölme yanlış uygulanmıştır ya da model gerçekten genelliyor demektir — ikinci ihtimal nadirdir, önce birinciyi kontrol et.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 8 ============ -->
+<div class="konu" id="k8">
+  <div class="kbas"><span class="kno">08</span><h2>4 GB ekran kartında eğitim</h2><span class="kfaz">Faz 2 · 4</span></div>
+  <div class="kgov">
+    <p>Referans dokümanı 30 GB üstü kart anıyor. <b>Bu sayı yanlış okunmaya çok müsait:</b> 30 GB yalnızca yer değiştirme alanı üretimini <i>ekran kartında</i> yapmak isteyenler için. Varsayılan yol işlemcide üretmek ve orada belirleyici olan <b>RAM</b> — bizde 64 GB var, yani o kapı zaten açık. Gerçek darboğaz eğitimde: 4 GB VRAM.</p>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Teknik</th><th>Ne yapıyor</th><th>Bedeli</th></tr></thead>
+      <tbody>
+        <tr><td>Yığın boyutunu düşür</td><td>Aynı anda daha az örnek tutulur</td><td>Gradyan gürültülü olur, eğitim yavaşlar</td></tr>
+        <tr><td>Gradyan biriktirme</td><td>Küçük yığınları toplayıp büyük yığın etkisi verir</td><td>Sadece süre — <b>bellek maliyeti yok</b></td></tr>
+        <tr><td>Karma hassasiyet (AMP)</td><td>Hesapları 16 bitte yapar</td><td>Neredeyse bedelsiz, çoğu zaman <b>hızlandırır da</b></td></tr>
+        <tr><td>Kare dizisini kısalt</td><td>Daha az kareye bakılır</td><td><b class="ele">Doğruluğu doğrudan etkiler</b> — son çare</td></tr>
+        <tr><td>Yer değiştirme alanını işlemcide üret</td><td>Ekran kartı belleği boşalır</td><td>Yavaş ama çalışır</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4>Bu kartta ölçülen gerçek sınır</h4>
+      <p><code>scripts/vram_olc.py</code> tam bir eğitim adımı koşuyor (ileri geçiş + geri yayılım + optimiser), 480×640 girdi, EfficientNet-B1:</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Yığın</th><th>AMP</th><th>Tepe VRAM</th><th>Örnek başına</th><th>Sonuç</th></tr></thead>
+        <tbody>
+          <tr><td>4</td><td>kapalı</td><td>3,03 GiB</td><td>61 ms</td><td>kullanılabilir</td></tr>
+          <tr><td>8</td><td>kapalı</td><td>5,81 GiB</td><td>363 ms</td><td><b class="ele">taştı</b></td></tr>
+          <tr><td>8</td><td><b class="sec">açık</b></td><td><b class="sec">3,06 GiB</b></td><td><b class="sec">60 ms</b></td><td><b class="sec">kullanılabilir — tavan</b></td></tr>
+          <tr><td>16</td><td>açık</td><td>5,88 GiB</td><td>208 ms</td><td><b class="ele">taştı</b></td></tr>
+        </tbody>
+      </table></div>
+      <p style="margin-top:7px">Yani referansın <code>MINIBATCH_SIZE=16</code> ayarı bu kartta doğrudan koşmaz. Eşdeğeri: <b>AMP açık + yığın 8 + 2 adım gradyan biriktirme.</b> AMP'nin katkısı somut — aynı 3 GiB'de yığını 4'ten 8'e çıkarıyor.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">En sinsi tuzak: "OOM vermedi" ≠ "sığdı"</span>
+      4 GB kartta ölçüm <b>11,39 GiB tepe tahsis</b> gösterdi ve kod çökmedi. Sebep: Windows WDDM sürücüsü VRAM taşınca sessizce sistem RAM'ine taşırıyor. Bedeli bellekte değil <b>hızda</b> görünüyor — adım süresi 250 ms'den 12 saniyeye çıktı, <b>52 kat.</b>
+      <p style="margin-top:7px">Ders: yığın boyutunu <code>OutOfMemoryError</code> alana kadar büyütme. <b>Örnek başına süreyi</b> izle: yığın büyürken bu süre normalde düşer ya da sabitlenir. Yükselmeye başladığı nokta gerçek sınırdır.</p></div>
+
+    <div class="blok">
+      <h4>Uygulama sırası</h4>
+      <p>Bellek yetmezse sırayla: <b>AMP aç → gradyan biriktirme ekle → yığını küçült → dizi uzunluğunu kısalt.</b> İlk ikisi doğruluğu neredeyse hiç etkilemiyor; sonuncusu etkiliyor, o yüzden en sonda.</p>
+    </div>
+
+    <div class="kutu"><span class="kt">Kısıtı iddiaya çevir</span>
+      Bu kısıt projenin <b>ikinci sonucu</b> olabilir: \"aynı doğruluğu 30 GB yerine 4 GB'de aldım, şu tekniklerle, şu kadar süreyle.\" Verimlilik tarafını bu alanda kimse ölçmüyor ve senin şartların seni doğal olarak oraya itiyor.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 9 ============ -->
+<div class="konu" id="k9">
+  <div class="kbas"><span class="kno">09</span><h2>PyTorch3D: ne işe yarıyor, neden korkulduğu kadar sorun değil</h2><span class="kfaz">Faz 0</span></div>
+  <div class="kgov">
+    <p>PyTorch3D, Meta'nın 3B derin öğrenme kütüphanesi. Asıl ağırlığı <b>diferansiyellenebilir işleyici</b> (mesh render), nokta bulutu işlemleri ve 3B kayıp fonksiyonlarında. Bunların çoğu CUDA'da elle yazılmış çekirdekler, yani kurulumda <b>derlenmesi</b> gerekir — kütüphanenin zor kurulum şöhreti buradan geliyor.</p>
+
+    <div class="blok">
+      <h4>Ama bu proje onun hangi parçasını kullanıyor?</h4>
+      <p>Referans depoda <code>grep pytorch3d</code> çektiğinde tek bir alt modül çıkıyor: <code>pytorch3d.transforms</code>. Kullanılan fonksiyonlar:</p>
+      <pre>matrix_to_euler_angles(M, 'ZYX')   <i># 3×3 dönme matrisi → 3 Euler açısı</i>
+euler_angles_to_matrix(a, 'ZYX')   <i># 3 Euler açısı → 3×3 dönme matrisi</i>
+quaternion_to_matrix(q)            <i># kuaterniyon → 3×3 dönme matrisi</i></pre>
+      <p style="margin-top:7px">Hepsi <b>saf Python + PyTorch tensör işlemi.</b> Tek bir CUDA çekirdeği çağırmıyorlar. Yani derlenmiş <code>pytorch3d._C</code> eklentisi bu projede hiç yüklenmiyor.</p>
+    </div>
+
+    <div class="kutu"><span class="kt">Ölçüldü, varsayılmadı</span>
+      <code>scripts/ortam_dogrula.py</code> her çalıştığında <code>pytorch3d.transforms</code> içe aktarılıyor, ardından <code>sys.modules</code> içinde <code>pytorch3d._C</code> olup olmadığına bakılıyor. Yok. Bu yüzden CPU derlemesi (<code>cpu_py310*</code>) bilinçli seçildi — CUDA derlemesi 19 MB daha büyük ve bu projede <b>hiçbir işe yaramıyor.</b></div>
+
+    <h4>Aynı işi yapabilecek alternatifler ve neden seçilmediler</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Seçenek</th><th>Artı</th><th>Neden seçilmedi</th></tr></thead>
+      <tbody>
+        <tr><td><b class="sec">pytorch3d.transforms</b></td><td>Referansın kullandığı <b>birebir aynı kütüphane</b>; tensör üstünde çalışır, gradyan akar</td><td>—</td></tr>
+        <tr><td><code>scipy.spatial.transform.Rotation</code></td><td>Kurulumu bedava, olgun, iyi belgelenmiş</td><td><b class="ele">NumPy üstünde çalışır, gradyan akmaz.</b> Kayıp fonksiyonunun içinde kullanılamaz</td></tr>
+        <tr><td>kornia</td><td>PyTorch tabanlı, gradyan akar, saf Python</td><td>Euler sırası ve işaret gelenekleri farklı olabilir; <b>referansla sayısal uyuşmazlık riski</b> karşılığında hiçbir kazanç yok</td></tr>
+        <tr><td>roma</td><td>Hafif, sadece dönme matematiği, gradyan akar</td><td>Aynı uyuşmazlık riski, üstüne bir bağımlılık daha</td></tr>
+        <tr><td>Elle yazmak (~50 satır)</td><td>Sıfır bağımlılık, tamamen şeffaf</td><td>Euler sırası / işaret hatası <b>sessizce</b> yanlış sonuç verir. Faz 0'da riske girilmez</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="tuzak"><span class="kt">Buradaki asıl ders</span>
+      Yol haritası bu projenin "en sinsi engeli" olarak PyTorch3D kurulumunu işaretlemişti. Yanlıştı — ve yanlış olduğu tahminle değil, <b>depoda arama yapılarak</b> anlaşıldı. Bir kütüphanenin genel şöhreti, senin ondan ne kullandığın hakkında hiçbir şey söylemez. Önce <code>grep</code> çek, sonra korkmaya karar ver.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 10 ============ -->
+<div class="konu" id="k10">
+  <div class="kbas"><span class="kno">10</span><h2>CUDA sürüm zinciri nasıl okunur</h2><span class="kfaz">Faz 0</span></div>
+  <div class="kgov">
+    <p>GPU eğitimi kurarken dört ayrı sürüm var ve bunları karıştırmak en sık kaybedilen zaman. Zinciri bir kere doğru okursan bir daha uğraşmazsın.</p>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Katman</th><th>Bizde</th><th>Kim kurar</th></tr></thead>
+      <tbody>
+        <tr><td>Kartın hesap yeteneği</td><td>RTX 3050 Ti → Ampere, <code>sm_86</code></td><td>Donanım, değişmez</td></tr>
+        <tr><td>NVIDIA sürücüsü</td><td><code>616.56</code></td><td>Sen kurarsın, sistem geneli</td></tr>
+        <tr><td>CUDA çalışma zamanı</td><td><code>12.1</code></td><td><b>PyTorch tekerleğinin içinde gelir</b></td></tr>
+        <tr><td>PyTorch</td><td><code>2.1.0+cu121</code></td><td><code>pip install</code></td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4><code>2.1.0+cu121</code> ne demek</h4>
+      <pre>torch==<b>2.1.0</b>+<b>cu121</b>
+        │        └── içine gömülü CUDA çalışma zamanı: 12.1
+        └── PyTorch sürümü</pre>
+      <p style="margin-top:7px"><b>Sisteme ayrıca CUDA Toolkit kurmaya gerek yok.</b> En yaygın yanlış inanç bu. PyTorch tekerleği gereken CUDA kütüphanelerini kendi içinde taşıyor; dışarıdan tek istediği <b>yeterince yeni bir sürücü.</b></p>
+    </div>
+
+    <div class="kutu"><span class="kt">Tek kural</span>
+      <b>Sürücü ≥ CUDA çalışma zamanının istediği taban sürüm.</b> NVIDIA sürücüleri <b>ileriye dönük uyumlu:</b> yeni sürücü eski CUDA'yı çalıştırır. CUDA 12.1'in tabanı ~525; bizde 616.56 var, fazlasıyla yeter. Tersi geçerli değil — eski sürücü yeni CUDA'yı çalıştırmaz.</div>
+
+    <div class="tuzak"><span class="kt">"is_available() True" yeterli kanıt değil</span>
+      <code>torch.cuda.is_available()</code> yalnızca sürücünün bulunduğunu söyler; çekirdeğin doğru sonuç ürettiğini söylemez. Doğrulama betiği bu yüzden GPU'da gerçek bir çarpım yapıp sonucu kontrol ediyor:
+      <pre>a = torch.randn(512, 512, device="cuda")
+fark = (a @ torch.eye(512, device="cuda") - a).abs().max()
+<i># birim matrisle çarpım a'yı değiştirmemeli</i></pre></div>
+
+    <h4>Python sürümü de bu zincirin parçası</h4>
+    <p>Bu projede kilidi Python sürümü belirledi: referans <code>3.9.13</code> diyor, ama conda-forge'da <code>pytorch3d</code>'nin <b>win-64 py39 derlemesi yok</b> — py310'dan py314'e var, linux-64'te py39 var. Bir paketin "var olması" ile <b>senin platformun ve Python sürümün için derlenmiş olması</b> ayrı şeyler. Kontrol yolu:</p>
+    <pre>curl -s https://api.anaconda.org/package/conda-forge/pytorch3d/files \
+  | grep win-64 | grep py310</pre>
+    <p style="margin-top:7px">Biz 3.10'a çıktık. Eğitim kodu düz PyTorch olduğu için sonucu etkilemiyor — ama bu bir <b>sapma</b> ve depoda kayıtlı olması gerekiyor.</p>
+  </div>
+</div>
+
+<!-- ============ KONU 11 ============ -->
+<div class="konu" id="k11">
+  <div class="kbas"><span class="kno">11</span><h2>WSL2 nedir, Linux'ta paket kurmak neden kolay</h2><span class="kfaz">Faz 0</span></div>
+  <div class="kgov">
+    <p>WSL2 = Windows Subsystem for Linux, ikinci sürüm. İsim yanıltıcı: bu bir öykünücü değil, Windows'un hafif sanallaştırmasıyla çalışan <b>gerçek bir Linux çekirdeği.</b> Ubuntu dosya sistemi ext4 olarak ayrı bir sanal diskte durur, Windows diski <code>/mnt/c</code> altından görünür. NVIDIA kartı WSL2'ye sürücü üzerinden geçirilir, yani içinde CUDA eğitimi yapılabilir.</p>
+
+    <div class="blok">
+      <h4>Bilimsel Python paketleri Linux'ta neden daha kolay kuruluyor</h4>
+      <div class="tbl"><table>
+        <thead><tr><th>Sebep</th><th>Linux</th><th>Windows</th></tr></thead>
+        <tbody>
+          <tr><td>Derleyici</td><td>gcc her yerde, standart</td><td>MSVC gerekir; ayrı kurulum, farklı ABI</td></tr>
+          <tr><td>Hazır derleme (wheel / conda)</td><td>Neredeyse her paket, her Python sürümü için var</td><td><b class="ele">Sık sık eksik</b> — bizim py39 örneği tam bu</td></tr>
+          <tr><td>Paylaşılan kütüphane</td><td><code>.so</code>, <code>rpath</code> ile çözülür</td><td><code>.dll</code>, arama yolu kırılgan</td></tr>
+          <tr><td>Sürecin kopyalanması</td><td><code>fork</code> var</td><td>Yok, yalnızca <code>spawn</code> — bkz. konu 12</td></tr>
+          <tr><td>Araştırma kodunun denendiği yer</td><td>Genelde <b>burası</b></td><td>Genelde hiç denenmemiş</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="kutu"><span class="kt">Biz neden Windows'ta kaldık</span>
+      Faz 0'da WSL2'nin tek gerçek kazancı Python 3.9.13'e birebir uymaktı. Bedeli: Ubuntu dağıtımı kurulumu, GPU geçirme katmanı ve <b>dosya erişimi.</b> <code>/mnt/c</code> üzerinden okumak ext4'e göre belirgin yavaştır; 164 bin kareyi ext4'e kopyalamak gerekirdi, yani veri iki yerde dururdu. 3.10'a çıkmanın bedeli sıfır olduğu için Windows'ta kalmak daha ucuz çıktı.</div>
+
+    <div class="tuzak"><span class="kt">WSL2 yine de masada</span>
+      Karar geri alınabilir. İleride Windows'a özgü bir engel çıkarsa — derlenmemiş bir paket, çözülemeyen bir çokişlemcilik sorunu — WSL2 hazır çıkış yolu. Bunu mümkün kılan şey <b>ortamın kilitli olması:</b> <code>environment.yml</code> + <code>requirements-lock.txt</code> aynı ortamı orada da kurar.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 12 ============ -->
+<div class="konu" id="k12">
+  <div class="kbas"><span class="kno">12</span><h2>fork ve spawn: aynı kod Linux'ta çalışıp Windows'ta neden çöküyor</h2><span class="kfaz">Faz 0</span></div>
+  <div class="kgov">
+    <p>Faz 0'da gerçek bir hataya çarptık ve sebebi öğretici, çünkü <b>referans kod hatalı değil — sadece hiç Windows'ta denenmemiş.</b></p>
+
+    <div class="blok">
+      <h4>Olay</h4>
+      <p>Referans <code>train.py</code> veri yükleyiciyi <code>num_workers=8</code> ile kuruyor, yani veri okumayı 8 ayrı sürece dağıtıyor. Betiğin tamamı modül seviyesinde, <code>if __name__ == "__main__"</code> koruması yok. Windows'ta çıkan:</p>
+      <pre>RuntimeError: An attempt has been made to start a new process
+before the current process has finished its bootstrapping phase.</pre>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th></th><th>fork — Linux</th><th>spawn — Windows</th></tr></thead>
+      <tbody>
+        <tr><td>Çocuk süreç nasıl oluşur</td><td>Ana sürecin <b>belleği kopyalanır</b></td><td><b>Sıfırdan Python başlatılır</b></td></tr>
+        <tr><td>Ana modül yeniden çalışır mı</td><td><b>Hayır</b> — durum hazır gelir</td><td><b class="ele">Evet</b> — baştan içe aktarılır</td></tr>
+        <tr><td>Koruma gerekir mi</td><td>Hayır</td><td><b>Evet, şart</b></td></tr>
+      </tbody>
+    </table></div>
+
+    <p>Windows'ta her işçi süreç <code>train.py</code>'ı baştan çalıştırıyor; o da yeni bir veri yükleyici kurup <b>yeni işçiler doğurmaya</b> kalkıyor. Python bu sonsuz döngüyü tanıyıp yukarıdaki hatayla durduruyor. Linux'ta <code>fork</code> modülü yeniden çalıştırmadığı için sorun hiç görünmüyor.</p>
+
+    <div class="blok">
+      <h4>Doğru çözüm</h4>
+      <pre>def main():
+    train_loader = DataLoader(..., num_workers=8)
+    ...
+
+if __name__ == "__main__":   <i># çocuk süreçte __name__ "__mp_main__" olur,</i>
+    main()                   <i># bu blok çalışmaz, döngü kırılır</i></pre>
+    </div>
+
+    <div class="kutu"><span class="kt">Bizim yaptığımız — ve neden</span>
+      Yol haritasının kuralı: <b>referans depo değiştirilmez.</b> Bu yüzden <code>src/referans_kos.py</code> yazıldı: betiği çalıştırmadan önce <code>DataLoader.__init__</code>'i sarıp <code>num_workers=0</code>'a sabitliyor. İşçi süreç doğmazsa korumaya da gerek kalmıyor ve <b>matematik birebir aynı kalıyor.</b> Bedeli: veri okuma tek süreçte, yani yavaş.
+      <p style="margin-top:7px">Faz 2'de gerçek eğitim için işçi süreçler gerekecek. O zaman referansı sarmak yetmez; <code>src/</code> altına <b>korumalı kendi eğitim döngümüz</b> yazılacak. Faz 0'ın işi boru hattını döndürmekti, hız değil.</p></div>
+
+    <div class="tuzak"><span class="kt">Genel ders</span>
+      Araştırma kodu neredeyse her zaman Linux'ta yazılır ve Linux'ta denenir. Windows'ta çalıştırıyorsan karşılaşacağın hataların çoğu <b>bilim değil, platform</b> kaynaklı olacak. Bunları ayırt etmeyi öğren: hata <code>multiprocessing</code>, <code>.dll</code>, dosya yolu ayıracı ya da dosya kilidi kokuyorsa platformdur — modelinde bir şey aramaya başlamadan önce orayı ele.</div>
+  </div>
+</div>
+
+<footer>SerbestEl · öğrenme sayfası · proje ilerledikçe büyüyecek · C:\Dark\SerbestEl\docs\ogrenme.html</footer>
+</div>
+</body>
+</html>
