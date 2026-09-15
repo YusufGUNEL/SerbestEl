@@ -28,20 +28,35 @@ import torch
 KOK = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(KOK / "reference" / "TUS-REC2025-Challenge_baseline"))
 
+from utils.funs import pair_samples, type_dim  # noqa: E402
 from utils.network import build_model  # noqa: E402
+
+
+def cikti_boyutu(kare, num_pred=1, pred_type="parameter", kose_nokta=4):
+    """Agin cikti boyutu dizi uzunluguna gore degisir - sabit 6 DEGIL.
+
+    NUM_SAMPLES kare icin (NUM_SAMPLES-1) cift olusuyor ve her cift icin
+    ayri donusum tahmin ediliyor: pred_dim = 6 * cift sayisi.
+      kare  2 -> 1 cift ->  6
+      kare  5 -> 4 cift -> 24
+      kare 10 -> 9 cift -> 54
+    """
+    ciftler = pair_samples(kare, num_pred, 0).shape[0]
+    return type_dim(pred_type, kose_nokta, ciftler)
 
 
 def dene(yigin, kare, amp, yukseklik=480, genislik=640):
     """Tek egitim adimini kosar. (basarili, tepe_GiB, sure_ms) dondurur."""
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
+    pred_dim = cikti_boyutu(kare)
     model = build_model({"model_name": "efficientnet_b1"},
-                        in_frames=kare, pred_dim=6).cuda()
+                        in_frames=kare, pred_dim=pred_dim).cuda()
     opt = torch.optim.Adam(model.parameters(), lr=1e-4)
     olcek = torch.cuda.amp.GradScaler(enabled=amp)
     try:
         x = torch.randn(yigin, kare, yukseklik, genislik, device="cuda")
-        y = torch.randn(yigin, 6, device="cuda")
+        y = torch.randn(yigin, pred_dim, device="cuda")
         bas = torch.cuda.Event(enable_timing=True)
         son = torch.cuda.Event(enable_timing=True)
         bas.record()
@@ -65,7 +80,8 @@ def dene(yigin, kare, amp, yukseklik=480, genislik=640):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--kare", type=int, default=2, help="NUM_SAMPLES (girdi kanali)")
+    ap.add_argument("--kare", type=int, nargs="+", default=[2],
+                    help="NUM_SAMPLES degerleri (girdi kanal sayisi)")
     ap.add_argument("--yiginlar", type=int, nargs="+", default=[1, 2, 4, 8, 16])
     a = ap.parse_args()
 
@@ -73,15 +89,38 @@ def main():
         raise SystemExit("CUDA yok")
     toplam = torch.cuda.get_device_properties(0).total_memory / 1024**3
     print(f"{torch.cuda.get_device_name(0)}  {toplam:.1f} GiB")
-    print(f"girdi 480x640, NUM_SAMPLES={a.kare}, efficientnet_b1\n")
+
+    ozet = {}
+    for kare in a.kare:
+        print(f"\n{'=' * 62}")
+        print(f"NUM_SAMPLES={kare}  (girdi 480x640x{kare}, "
+              f"cikti {cikti_boyutu(kare)} boyut)  efficientnet_b1")
+        print("=" * 62)
+        ozet[kare] = tara(kare, a.yiginlar, toplam)
+
+    if len(a.kare) > 1:
+        print(f"\n{'=' * 62}")
+        print("OZET - dizi uzunlugu buyudukce kullanilabilir yigin")
+        print("=" * 62)
+        print(f"{'NUM_SAMPLES':>12} {'AMP kapali':>12} {'AMP acik':>10}")
+        for kare, (k_kapali, k_acik) in ozet.items():
+            print(f"{kare:>12} {k_kapali or 'HICBIRI':>12} {k_acik or 'HICBIRI':>10}")
+
+
+def tara(kare, yiginlar, toplam):
+    """Bir dizi uzunlugu icin butun yiginlari olcer, kullanilabilir tavani dondurur."""
+    print()
     olcumler = []  # (amp, yigin, tepe_GiB, adim_ms, ornek_basina_ms)
     for amp in (False, True):
-        for y in a.yiginlar:
-            ok, tepe, ms = dene(y, a.kare, amp)
+        for y in yiginlar:
+            ok, tepe, ms = dene(y, kare, amp)
             if not ok:
                 print(f"  OOM: yigin {y}, AMP {'acik' if amp else 'kapali'}")
                 break
             olcumler.append((amp, y, tepe, ms, ms / y))
+    if not olcumler:
+        print("  hicbir yigin kosmadi")
+        return (0, 0)
 
     # TASMA TESPITI - docstring'deki iki isaret.
     # Her AMP ayari icin yiginlari artan sirada gezip ilk tasma noktasini bul;
@@ -110,11 +149,16 @@ def main():
     hedef = 16
     if kullanilabilir[True] >= hedef:
         print(f"referans MINIBATCH_SIZE={hedef} dogrudan kosabilir.")
-    else:
-        kat = hedef // max(kullanilabilir[True], 1)
+    elif kullanilabilir[True] > 0:
+        kat = -(-hedef // kullanilabilir[True])  # yukari yuvarla
         print(f"referans MINIBATCH_SIZE={hedef} DOGRUDAN KOSAMAZ.")
         print(f"Esdeger yol: AMP acik + yigin {kullanilabilir[True]} + "
               f"{kat} adim gradyan biriktirme.")
+    else:
+        print(f"referans MINIBATCH_SIZE={hedef} KOSAMAZ - bu dizi uzunlugunda "
+              f"yigin 1 bile tasiyor. Dizi uzunlugunu dusur ya da daha buyuk kart.")
+
+    return (kullanilabilir[False], kullanilabilir[True])
 
 
 if __name__ == "__main__":
