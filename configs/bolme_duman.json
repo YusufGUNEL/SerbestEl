@@ -1,0 +1,16 @@
+{
+  "egitim": [
+    "000",
+    "001",
+    "002",
+    "003"
+  ],
+  "dogrulama": [
+    "004"
+  ],
+  "test": [
+    "005"
+  ],
+  "tohum": 20260915,
+  "kaynak": "data\\duman\\frames_transfs"
+}
