@@ -30,6 +30,8 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 
 KOK = Path(__file__).resolve().parents[1]
+if str(KOK) not in sys.path:      # betik olarak kosuldugunda depo koku eklenmeli
+    sys.path.insert(0, str(KOK))
 VARSAYILAN = KOK / "configs" / "bolme.json"
 
 
@@ -66,19 +68,15 @@ class Bolme:
                 f"test {len(self.test)} denek, tohum {self.tohum})")
 
 
-def denekleri_bul(veri_kok: Path) -> list[str]:
-    """Denek klasorlerini bulur. `frames_transfs/` ya da `frames/` duzeni."""
-    for alt in ("frames_transfs", "frames", "."):
-        d = veri_kok / alt if alt != "." else veri_kok
-        if not d.is_dir():
-            continue
-        denekler = sorted(
-            k.name for k in d.iterdir()
-            if k.is_dir() and any(k.glob("*.h5"))
-        )
-        if denekler:
-            return denekler
-    raise SystemExit(f"denek klasoru bulunamadi: {veri_kok}")
+def denekleri_bul(veri_kok: Path) -> tuple[list[str], str, int]:
+    """Denekleri bulur. Duzen tanimayi `src/veri.py` yapiyor — tek yerden.
+
+    Dondurur: (denekler, duzen_adi, tarama_sayisi)
+    """
+    from src.veri import taramalari_bul
+
+    duzen, taramalar = taramalari_bul(veri_kok)
+    return sorted({t.denek for t in taramalar}), duzen, len(taramalar)
 
 
 def bolme_uret(denekler: list[str], oranlar=(0.6, 0.2, 0.2),
@@ -146,10 +144,11 @@ def main() -> int:
         print("ama o zaman onceki butun olcumler karsilastirilamaz hale gelir.")
         return 0
 
-    denekler = denekleri_bul(a.veri)
+    denekler, duzen, tarama_sayisi = denekleri_bul(a.veri)
     b = bolme_uret(denekler, tuple(a.oranlar), a.tohum, kaynak=str(a.veri))
     kaydet(b, a.cikti)
-    print(f"{len(denekler)} denek bulundu -> {b}")
+    print(f"{duzen} duzen, {len(denekler)} denek, {tarama_sayisi} tarama "
+          f"(denek basina {tarama_sayisi/len(denekler):.1f}) -> {b}")
     print("  egitim    :", ", ".join(b.egitim))
     print("  dogrulama :", ", ".join(b.dogrulama))
     print("  test      :", ", ".join(b.test))

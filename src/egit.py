@@ -49,8 +49,8 @@ for p in (str(KOK), str(REFERANS)):
         sys.path.insert(0, p)
 
 from src.bolme import yukle as bolme_yukle  # noqa: E402
+from src.veri import kume_kur, taramalari_bul  # noqa: E402
 from utils.funs import pair_samples, type_dim  # noqa: E402
-from utils.loader import Dataset  # noqa: E402
 from utils.loss import PointDistance  # noqa: E402
 from utils.network import build_model  # noqa: E402
 from utils.plot_functions import read_calib_matrices, reference_image_points  # noqa: E402
@@ -69,21 +69,18 @@ def _sinyal(signum, cerceve):
           "tekrar Ctrl+C hemen keser]", flush=True)
 
 
-def alt_kume(tum: Dataset, denekler: list[str], ad: str) -> Dataset:
-    """Denek KIMLIKLERINDEN alt veri kumesi kurar (indeksten degil).
+def alt_kume(kok, denekler: list[str], ad: str, num_samples: int,
+             sample_range: int):
+    """Denek KIMLIKLERINDEN alt veri kumesi kurar (klasor sirasindan degil).
 
-    Referans Dataset denekleri klasor sirasina gore indeksliyor. Bolmemiz
-    kimlik tabanli oldugu icin burada kimlik -> indeks eslemesi yapiyoruz;
-    veri dizinine denek eklenip cikarsa bile bolme kaymaz.
+    Referans Dataset denekleri klasor sirasina gore indeksliyor ve denek
+    basina TAM IKI tarama sart kosuyor. Ikisi de bizim icin calismiyor:
+    bolmemiz kimlik tabanli, TUS-REC2024'te ise denek basina 24 tarama var.
+    Bu yuzden `src/veri.py` icindeki kendi yukleyicimiz kullaniliyor.
     """
-    sira = {d: i for i, d in enumerate(tum.subs)}
-    eksik = [d for d in denekler if d not in sira]
-    if eksik:
-        raise SystemExit(f"{ad} kumesindeki denekler veride yok: {eksik}")
-    idx = [(sira[d], s) for d in denekler for s in range(len(tum.scans))]
-    alt = Dataset(data_path=tum.data_path, num_samples=tum.num_samples,
-                  sample_range=tum.sample_range, indices_in_use=idx)
-    print(f"  {ad:<10} {len(denekler):>3} denek, {len(alt):>4} tarama")
+    alt = kume_kur(kok, denekler, num_samples=num_samples,
+                   sample_range=sample_range, min_kare=sample_range)
+    print(f"  {ad:<10} {len(denekler):>3} denek, {len(alt):>5} tarama")
     return alt
 
 
@@ -142,18 +139,17 @@ def main() -> int:
         print("AMP yalnizca CUDA'da anlamli, kapatildi")
 
     # ---------------- veri ----------------
-    veri_yolu = a.veri / "frames_transfs"
-    if not veri_yolu.is_dir():
-        raise SystemExit(f"bulunamadi: {veri_yolu}")
-    tum = Dataset(data_path=str(veri_yolu), num_samples=a.num_samples,
-                  sample_range=a.sample_range)
-    print(f"veri: {len(tum.subs)} denek, denek basina {len(tum.scans)} tarama")
+    duzen, tum_taramalar = taramalari_bul(a.veri)
+    denek_sayisi = len({t.denek for t in tum_taramalar})
+    print(f"veri: {duzen} duzen, {denek_sayisi} denek, {len(tum_taramalar)} tarama "
+          f"(denek basina {len(tum_taramalar)/denek_sayisi:.1f})")
 
     bolme = bolme_yukle(a.bolme)
     print(f"bolme: {a.bolme.name}  (tohum {bolme.tohum})")
-    dset_egitim = alt_kume(tum, bolme.egitim, "egitim")
-    dset_dogrulama = alt_kume(tum, bolme.dogrulama, "dogrulama")
-    alt_kume(tum, bolme.test, "test")          # yalnizca dogrulama amacli
+    ok = dict(num_samples=a.num_samples, sample_range=a.sample_range)
+    dset_egitim = alt_kume(a.veri, bolme.egitim, "egitim", **ok)
+    dset_dogrulama = alt_kume(a.veri, bolme.dogrulama, "dogrulama", **ok)
+    alt_kume(a.veri, bolme.test, "test", **ok)   # yalnizca var oldugunu dogrulamak icin
     print("  test kumesine EGITIM SIRASINDA DOKUNULMAZ")
 
     ortak = dict(num_workers=a.isci, pin_memory=(aygit.type == "cuda"),
