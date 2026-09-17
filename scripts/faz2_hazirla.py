@@ -15,6 +15,8 @@ KULLANIM
 from __future__ import annotations
 
 import argparse
+import concurrent.futures as vadeli
+import os
 import shutil
 import subprocess
 import sys
@@ -31,8 +33,44 @@ def adim(no: int, ad: str) -> None:
     print(f"\n{'='*62}\n{no}. {ad}\n{'='*62}", flush=True)
 
 
-def zip_ac(zip_yolu: Path, hedef: Path) -> bool:
-    """Idempotent acma: bitmis isaretleyicisi varsa atlar."""
+def _parca_cikar(is_paketi: tuple[str, str, list[str]]) -> int:
+    """Bir isci surecin payi. Kendi ZipFile taniticisini acar — paylasilamaz."""
+    zip_yolu, hedef, adlar = is_paketi
+    with zipfile.ZipFile(zip_yolu) as z:
+        for ad in adlar:
+            z.extract(ad, hedef)
+    return len(adlar)
+
+
+def _paylar(girdiler: list[zipfile.ZipInfo], n: int) -> list[list[str]]:
+    """Girisleri sikistirilmis BOYUTA gore n kovaya dagitir.
+
+    Dosya SAYISINA gore bolmek ise yaramaz: bu kumede tek dosyalar 100-400 MB
+    arasinda degisiyor, esit sayida dosya alan isciler cok farkli surelerde
+    biter ve en yavasi herkesi bekletir.
+    """
+    kovalar: list[list[str]] = [[] for _ in range(n)]
+    yuk = [0] * n
+    for g in sorted(girdiler, key=lambda g: g.compress_size, reverse=True):
+        i = yuk.index(min(yuk))
+        kovalar[i].append(g.filename)
+        yuk[i] += g.compress_size
+    return [k for k in kovalar if k]
+
+
+def zip_ac(zip_yolu: Path, hedef: Path, isci: int = 0) -> bool:
+    """Idempotent, paralel acma: bitmis isaretleyicisi varsa atlar.
+
+    NEDEN PARALEL
+      Bu zip'ler deflate sikistirmali (~2,2 kat) ve acilmis hali 96 GB.
+      Cozme islemci baglidir; disk iki tarafta da NVMe SSD oldugu icin
+      darbogaz cekirdek sayisidir, tek cekirdekte saatler surer. Her isci
+      kendi ZipFile taniticisini acar (tanitici surecler arasinda
+      paylasilamaz); ayri dosyalara yazdiklari icin kilit gerekmez.
+
+    Isaretleyici ancak BUTUN parcalar bittikten sonra yazilir: yarim kalan
+    bir acma "acilmis" sayilmaz, tekrar kosulunca bastan alinir.
+    """
     imza = hedef / f".{zip_yolu.stem}.acildi"
     if imza.exists():
         print(f"  {zip_yolu.name}: zaten acilmis, atlaniyor")
@@ -42,21 +80,38 @@ def zip_ac(zip_yolu: Path, hedef: Path) -> bool:
         return False
 
     hedef.mkdir(parents=True, exist_ok=True)
-    gb = zip_yolu.stat().st_size / 1e9
+    with zipfile.ZipFile(zip_yolu) as z:
+        girdiler = [g for g in z.infolist() if not g.is_dir()]
+        dizinler = {g.filename.rsplit("/", 1)[0]
+                    for g in girdiler if "/" in g.filename}
+    acilmis_gb = sum(g.file_size for g in girdiler) / 1e9
     bos = shutil.disk_usage(hedef).free / 1e9
-    if bos < gb * 1.2:
-        print(f"  {zip_yolu.name}: YER YOK ({bos:.0f} GB bos, ~{gb:.0f} GB gerekli)")
+    if bos < acilmis_gb * 1.05:
+        print(f"  {zip_yolu.name}: YER YOK ({bos:.0f} GB bos, "
+              f"~{acilmis_gb:.0f} GB gerekli)")
         return False
 
-    print(f"  {zip_yolu.name}: {gb:.1f} GB aciliyor...", flush=True)
+    for d in dizinler:                    # isciler yarismasin diye onceden
+        (hedef / d).mkdir(parents=True, exist_ok=True)
+
+    isci = isci or min(8, os.cpu_count() or 4)
+    # Isci sayisinin katı kadar pay: bir pay bitince ilerleme yazilabiliyor.
+    # Tam isci sayisi kadar pay olsaydi ilerleme ancak en sonda gorunurdu.
+    paylar = _paylar(girdiler, isci * 4)
+    print(f"  {zip_yolu.name}: {len(girdiler)} dosya -> {acilmis_gb:.1f} GB, "
+          f"{isci} isci, {len(paylar)} pay", flush=True)
+
     bas = time.time()
-    with zipfile.ZipFile(zip_yolu) as z:
-        girdiler = z.infolist()
-        for i, g in enumerate(girdiler, 1):
-            z.extract(g, hedef)
-            if i % 50 == 0 or i == len(girdiler):
-                print(f"\r    {i}/{len(girdiler)}", end="", flush=True)
-    print(f"\n    bitti ({(time.time()-bas)/60:.1f} dk)")
+    bitti = 0
+    with vadeli.ProcessPoolExecutor(max_workers=min(isci, len(paylar))) as havuz:
+        isler = [havuz.submit(_parca_cikar, (str(zip_yolu), str(hedef), p))
+                 for p in paylar]
+        for tamam in vadeli.as_completed(isler):
+            bitti += tamam.result()
+            print(f"    {bitti}/{len(girdiler)} dosya  "
+                  f"({(time.time()-bas)/60:.1f} dk)", flush=True)
+    sure = time.time() - bas
+    print(f"    bitti ({sure/60:.1f} dk, {acilmis_gb/sure:.2f} GB/s)")
     imza.write_text("ok")
     return True
 

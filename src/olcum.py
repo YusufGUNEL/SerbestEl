@@ -153,6 +153,21 @@ def _isaret_mesafesi(T_a: torch.Tensor, T_b: torch.Tensor, kalib: Kalibrasyon,
     return fark[:, 0:3, 0].pow(2).sum(dim=1).sqrt().mean().item()
 
 
+def isaret_yolu(veri_kok: Path, denek: str) -> Path | None:
+    """Denege ait isaret dosyasini bulur — kumeler farkli yerlere koyuyor.
+
+    TUS-REC2025: `landmarks/landmark_<denek>.h5`
+    TUS-REC2024: landmark.zip duz aciliyor, dosyalar kokte duruyor.
+    Ikisi de denenir; bulunamazsa None doner ve isaret olculeri NaN olur
+    (GP/LP yine hesaplanir — olcum isaret yok diye durmaz).
+    """
+    for aday in (veri_kok / "landmarks" / f"landmark_{denek}.h5",
+                 veri_kok / f"landmark_{denek}.h5"):
+        if aday.exists():
+            return aday
+    return None
+
+
 def tarama_olc(kareler, tforms, isaretler, model, kalib, ciftler, aygit,
                nokta_yogunlugu=None, **kw) -> dict:
     """Bir tarama icin dort olcu. nokta_yogunlugu=None -> butun 307200 piksel."""
@@ -194,32 +209,36 @@ def main() -> int:
     denekler = bolme.denek_kumesi(a.kume)
     print(f"{a.kume} kumesi: {len(denekler)} denek  |  agirlik: {a.agirlik.name}")
 
-    kok = a.veri / "frames_transfs"
-    ayri = not kok.is_dir()          # dogrulama seti duzeni
-    satirlar = []
-    for denek in denekler:
-        d = (a.veri / "frames" / denek) if ayri else (kok / denek)
-        for dosya in sorted(d.glob("*.h5")):
-            tarama = dosya.stem
-            if ayri:
-                with h5py.File(dosya) as f:
-                    kareler = np.asarray(f["frames"])
-                with h5py.File(a.veri / "transfs" / denek / dosya.name) as f:
-                    tforms = torch.tensor(np.asarray(f["tforms"]))
-            else:
-                with h5py.File(dosya) as f:
-                    kareler = np.asarray(f["frames"])
-                    tforms = torch.tensor(np.asarray(f["tforms"]))
-            with h5py.File(a.veri / "landmarks" / f"landmark_{denek}.h5") as f:
-                isaretler = torch.from_numpy(np.asarray(f[tarama]))
+    # Duzen tanimayi src/veri.py yapiyor: uc duzen de (birlesik / ayri / duz)
+    # ayni Tarama nesnesine iniyor, burada ayrim kalmiyor.
+    from src.veri import taramalari_bul
 
-            s = tarama_olc(kareler, tforms, isaretler, model, kalib, ciftler,
-                           aygit, nokta_yogunlugu=(a.seyrek, a.seyrek) if a.seyrek else None)
-            s.update(denek=denek, tarama=tarama)
-            satirlar.append(s)
-            print(f"  {denek}/{tarama:<14} {s['kare']:>5} kare   "
-                  f"GP {s['GP']:7.3f}  GL {s['GL']:7.3f}  "
-                  f"LP {s['LP']:6.4f}  LL {s['LL']:6.4f}   mm")
+    _, tum_taramalar = taramalari_bul(a.veri)
+    istenen = set(denekler)
+    secili = [t for t in tum_taramalar if t.denek in istenen]
+    print(f"  {len(secili)} tarama olculecek")
+
+    satirlar = []
+    for t in secili:
+        with h5py.File(t.kare_yolu) as f:
+            kareler = np.asarray(f["frames"])
+        with h5py.File(t.tform_yolu) as f:
+            tforms = torch.tensor(np.asarray(f["tforms"]))
+
+        ly = isaret_yolu(a.veri, t.denek)
+        if ly is None:
+            isaretler = torch.zeros((0, 3), dtype=torch.int64)
+        else:
+            with h5py.File(ly) as f:
+                isaretler = torch.from_numpy(np.asarray(f[t.ad]))
+
+        s = tarama_olc(kareler, tforms, isaretler, model, kalib, ciftler,
+                       aygit, nokta_yogunlugu=(a.seyrek, a.seyrek) if a.seyrek else None)
+        s.update(denek=t.denek, tarama=t.ad)
+        satirlar.append(s)
+        print(f"  {t.denek}/{t.ad:<14} {s['kare']:>5} kare   "
+              f"GP {s['GP']:7.3f}  GL {s['GL']:7.3f}  "
+              f"LP {s['LP']:6.4f}  LL {s['LL']:6.4f}   mm", flush=True)
 
     print("\n" + "=" * 64)
     print(f"{a.kume.upper()} KUMESI ORTALAMASI ({len(satirlar)} tarama)")
