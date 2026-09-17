@@ -139,6 +139,7 @@
     <li><a href="#k15">Yanlılık mı gürültü mü: sürüklenmeyi asıl ne büyütüyor</a></li>
     <li><a href="#k16">Yer değiştirme alanı (DDF): dört ölçü ve 23 GB'ı eriten sadeleşme</a></li>
     <li><a href="#k17">Ön eğitimli ağırlık da sızıntı taşır</a></li>
+    <li><a href="#k18">Hatayı teşhis etmek: sabit yanlılık mı, çarpımsal sapma mı</a></li>
     <li class="bek">Faz ilerledikçe eklenecek…</li>
   </ol>
 </div>
@@ -792,6 +793,75 @@ model.load_state_dict(torch.load(
 
     <div class="kutu"><span class="kt">Neden 050–052 temiz</span>
       Yarışma açıklaması şunu söylüyor: <i>"The patient IDs are consistent across datasets of TUS-REC2024 and TUS-REC2025."</i> Denek numaraları iki veri kümesinde <b>aynı kişiyi</b> gösteriyor. TUS-REC2024 eğitim kümesi 000–049, elimizdeki 2025 doğrulama kümesi 050–052 — kesişim <b>boş</b>. Bunu varsaymak yerine kontrol etmek gerekiyordu; kesişseydi bütün karşılaştırma çöpe giderdi.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 18 ============ -->
+<div class="konu" id="k18">
+  <div class="kbas"><span class="kno">18</span><h2>Hatayı teşhis etmek: sabit yanlılık mı, çarpımsal sapma mı</h2><span class="kfaz">Faz 3</span></div>
+  <div class="kgov">
+    <p>Konu 15 sürüklenmeyi <b>yanlılığın</b> büyüttüğünü gösterdi. Ama "yanlılık" tek bir şey değil. Gerçek bir modelde en az iki ayrı tür var ve <b>tedavileri farklı</b>. Faz 3'ün işi hangisinin baskın olduğunu ölçmek.</p>
+
+    <div class="blok">
+      <h4>Ölçülen büyüklük: kare başına hata dönüşümü</h4>
+      <p>Her kare için modelin ne kadar yanıldığı tek bir dönüşümde toplanıyor:</p>
+      <pre>E_i = T_gercek_yerel_i⁻¹ · T_tahmin_yerel_i</pre>
+      <p>Bu birim matrise ne kadar yakınsa model o kadar doğru. Altı bileşene açılıyor — öteleme x/y/z (mm) ve dönme x/y/z (derece). <b>Eksen-açı</b> kullanılıyor, Euler değil: Euler'in tekilliği var, küçük açılarda ortalama almak anlamsızlaşır.</p>
+      <ul>
+        <li><b>Ortalama</b> → sabit yanlılık</li>
+        <li><b>Standart sapma</b> → gürültü</li>
+        <li><code>|ortalama| / sapma</code> 1'in üstündeyse yanlılık baskın</li>
+      </ul>
+    </div>
+
+    <div class="blok">
+      <h4>İkinci tür: çarpımsal sapma</h4>
+      <p>Model hareketi tutarlı biçimde <b>küçük</b> tahmin ediyorsa hata sabit değil, hareketle <b>orantılıdır</b>. Ortalaması bile sıfıra yakın çıkabilir — ama tarama boyunca hareket aynı yöndeyken hata da aynı yönde olur ve <b>zincirde toplanır</b>. Yani yanlılık gibi davranır, yanlılık olarak ölçülmez.</p>
+      <p>Bunu yakalamak için bileşen bileşen doğru uydurma:</p>
+      <pre>tahmin ≈ a · gerçek + b</pre>
+      <p><code>a</code> çarpımsal sapma, <code>b</code> sabit yanlılık, <code>r</code> bağdaşım. <b><code>a &lt; 1</code> ise model hareketi küçümsüyor.</b></p>
+    </div>
+
+    <div class="kutu"><span class="kt">Ölçülen — ön eğitimli referans model, dönen taramalar</span>
+      <div class="tbl" style="margin-top:8px"><table>
+        <thead><tr><th>Bileşen</th><th>a (ölçek)</th><th>r (bağdaşım)</th><th>Okunuşu</th></tr></thead>
+        <tbody>
+          <tr><td>öteleme x</td><td>0,68</td><td>+0,84</td><td>Görüyor ama %32 küçümsüyor</td></tr>
+          <tr><td>öteleme y</td><td>0,64</td><td>+0,90</td><td>Görüyor ama %36 küçümsüyor</td></tr>
+          <tr><td>öteleme z</td><td>0,14</td><td>+0,31</td><td>Neredeyse görmüyor</td></tr>
+          <tr><td><b class="ele">dönme x</b></td><td><b class="ele">−0,02</b></td><td><b class="ele">−0,05</b></td><td><b class="ele">Hiç görmüyor</b></td></tr>
+          <tr><td><b class="ele">dönme y</b></td><td><b class="ele">0,05</b></td><td><b class="ele">+0,25</b></td><td><b class="ele">Hiç görmüyor</b></td></tr>
+          <tr><td>dönme z</td><td>0,69</td><td>+0,91</td><td>Görüyor ama küçümsüyor</td></tr>
+        </tbody>
+      </table></div>
+      Düzlem <b>içi</b> hareketi kabaca 0,65 katsayıyla görüyor; düzlem <b>dışı</b> dönmeyi <b>hiç görmüyor</b>. Bu model döndürmesiz TUS-REC2024 protokolünde eğitildi, dönen veri onun için dağıtım dışı. Şaşırtıcı değil — ama artık <b>sayıyla</b> gösterilmiş.</div>
+
+    <div class="blok">
+      <h4>İkisi birbirine bağlanıyor</h4>
+      <p><code>r ≈ 0</code> demek, çıktının girdiden bağımsız olduğu demek — yani model o bileşende hep <b>aynı şeyi</b> söylüyor. Girdiden bağımsız sabit çıktı, tam olarak <b>sabit yanlılıktır</b>. Bu yüzden iki ölçüm çelişmiyor, aynı olguyu iki yerden gösteriyor.</p>
+      <p>Nitekim ölçüldü: sabit yanlılığı geri almak GP'yi <b>38,3 → 25,2 mm</b> düşürüyor (%34); ölçek düzeltmesi yalnızca %10 getiriyor.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">Ölçülmüş tuzak: olmayan sinyal ölçeklenerek geri getirilemez</span>
+      Ölçek düzeltmesinin ilk sürümünde <b>bütün</b> bileşenler <code>a</code>'ya bölündü. Sonuç: GP <b>38 mm'den 128 mm'e çıktı</b>. Sebep açık — <code>a ≈ −0,02</code> olan bileşende bölmek gürültüyü 50 kat büyütüyor.
+      <p style="margin-top:7px">Düzeltme yalnızca <code>|r| ≥ 0,5</code> olan bileşenlere uygulanıyor artık. <b>Asıl bilgi hangilerinin düzeltilemediğinde:</b> düzeltilemeyen bileşen, modelin hiç öğrenmediği bileşendir. Faz 4'ün hedefi orası.</div>
+
+    <div class="blok">
+      <h4>Kehanet ve dürüst: her düzeltme iki kez ölçülüyor</h4>
+      <p>Bir düzeltmenin ne kadar kazandırdığını ölçerken <b>nereden ölçüldüğü</b> sonucu tamamen değiştirir.</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Sürüm</th><th>Yanlılık nereden ölçülüyor</th><th>Ne anlama geliyor</th></tr></thead>
+      <tbody>
+        <tr><td><b>Kehanet</b></td><td>Taramanın <b>kendi</b> gerçek değerlerinden</td><td>Uygulanabilir bir yöntem <b class="ele">değil</b> — test etiketini kullanıyor. Yalnızca <b>üst sınır</b>: sürüklenmenin en fazla ne kadarı bu türden</td></tr>
+        <tr><td><b class="sec">Dürüst</b></td><td>Test dışı bir kümede, bir kez</td><td>Test etiketine dokunulmuyor. Faz 4'te <b>gerçekten kullanılabilir</b> bir düzeltme</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="kutu"><span class="kt">Aradaki fark da bir ölçüm</span>
+      Dürüst sürüm de kazandırıyorsa, yanlılık <b>modele</b> ait sabit bir kusurdur — bir kez ölçülüp hep uygulanabilir. Yalnızca kehanet kazandırıyorsa yanlılık <b>taramadan taramaya</b> değişiyordur; o zaman sabit bir düzeltme işe yaramaz, modelin kendisini değiştirmek gerekir.
+      <p style="margin-top:7px">Kod bunu kazara karıştırmayı engelliyor: yanlılık kümesi test kümesiyle kesişirse <code>src/analiz.py</code> hata verip duruyor. Sessizce kehanete dönüşen bir "dürüst" ölçüm, hiç ölçüm yapmamaktan kötüdür.</div>
   </div>
 </div>
 

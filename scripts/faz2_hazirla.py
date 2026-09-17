@@ -173,7 +173,8 @@ def main() -> int:
 
     adim(4, "Testler")
     for t in ("scripts/ortam_dogrula.py", "tests/test_geometri.py",
-              "tests/test_hacim.py", "tests/test_olcum.py"):
+              "tests/test_hacim.py", "tests/test_olcum.py",
+              "tests/test_analiz.py"):
         if not kos(t, [PY, t]):
             sorun.append(f"test basarisiz: {t}")
 

@@ -62,14 +62,24 @@ Bizim değişikliklerimiz `src/` altına yazılır.
 
 | Küme | Erişim | Boyut | Not |
 |---|---|---|---|
-| TUS-REC2025 eğitim | **kısıtlı** — Zenodo'dan talep gerekir | ~22 GB | 50 denek, 100 tarama, ~164k kare |
-| TUS-REC2025 doğrulama | açık | 1,23 GB | 3 denek, 6 tarama, ~9k kare |
-| TUS-REC2024 eğitim (1–3) | açık | ~84 GB | Aynı kohort, döndürmesiz protokol |
-| TUS-REC2024 doğrulama | açık | 4,84 GB | |
+| TUS-REC2025 eğitim | **kısıtlı** — talep bekliyor | ~22 GB | 50 denek, 100 tarama, ~164k kare |
+| TUS-REC2025 doğrulama | **indirildi** | 1,23 GB | 3 denek (050–052), 6 dönen tarama, 1570 kare/tarama |
+| TUS-REC2024 eğitim (1–2) | **indirildi ve açıldı** | 83,8 GB → 186 GB | 50 denek (000–049), 1200 tarama, 24/denek |
+| TUS-REC2024 doğrulama | indirildi | 4,84 GB | |
 
-Veriler CC-BY-NC-SA-4.0. Eğitim kümesi kısıtlı olduğu için erişim talebi
-projenin kritik yolundadır — reddedilirse TUS-REC2024'ün açık ~84 GB'ı
-ana eğitim kaynağı olur.
+Veriler CC-BY-NC-SA-4.0. TUS-REC2025 eğitim kümesi hâlâ kısıtlı erişimde,
+bu yüzden **ana eğitim kaynağı TUS-REC2024**. İki kümenin denek numaraları
+aynı kişiyi gösteriyor; 2024 eğitimi 000–049, 2025 doğrulaması 050–052, yani
+2024'te eğitilen bir modeli 050–052'de ölçmek sızıntısız.
+
+Üç farklı dizin düzeni var ve referans yükleyici yalnızca birini kaldırıyor;
+`src/veri.py` üçünü de tanıyor:
+
+| Küme | Düzen | Tarama/denek |
+|---|---|---|
+| TUS-REC2025 eğitim | `frames_transfs/<denek>/<tarama>.h5` | 2 |
+| TUS-REC2025 doğrulama | `frames/` ve `transfs/` **ayrı** | 2 |
+| TUS-REC2024 | `<denek>/<tarama>.h5`, sarmalayıcı yok | **24** |
 
 ## Ölçüm
 
@@ -85,35 +95,85 @@ Dört yer değiştirme alanı (mm), hepsi raporlanır:
 Tek sayı vermek yanıltıcıdır: yerelde iyi, küresel de kötü olmak bu problemin
 klasik tuzağıdır.
 
-## Faz 2'ye başlarken — sırayla bunlar
+### Ölçülen kıyas noktası
 
-Faz 0 ve Faz 1 bitti. Eğitim verisi gelir gelmez aşağıdaki sıra izlenir.
+Ön eğitimli TUS-REC2024 modeli, TUS-REC2025 dönen doğrulama setinde
+(050–052, 6 tarama, sızıntısız, tam 307.200 piksel ızgarası):
+
+| GP | GL | LP | LL | GP/LP |
+|---|---|---|---|---|
+| 37,88 mm | 28,60 mm | 0,2513 mm | 0,2014 mm | **150,7×** |
+
+`results/faz2_referans_2025val/olculer.json`. Kare başına 0,25 mm hata, 1500
+karenin sonunda 38 mm'e çıkıyor. Faz 3 bu 151 katın nereden geldiğini ölçüyor.
+
+## Faz 2 — geçilecek sayıyı üret
+
+Veri indi ve açıldı: **TUS-REC2024, 50 denek, 1200 tarama** (denek başına 24),
+`D:\SerbestEl-veri\tusrec2024\acilmis`. Açılmış boyut 186 GB. Tarama uzunluğu
+en az 250, ortanca 547, en çok 710 kare — TUS-REC2025'in 1570'inden çok kısa.
+
+Tek komutla yeniden üretim:
 
 ```bash
-# 0) ortam ve doğrulamalar hâlâ sağlam mı (hepsi geçmeli)
-python scripts/ortam_dogrula.py              #  9 kontrol
-python tests/test_geometri.py                # 11 kontrol
-python tests/test_hacim.py                   #  3 kontrol
-python tests/test_olcum.py                   #  4 kontrol
-
-# 1) veriyi indir  (2025 eğitim seti kısıtlı, elle talep gerekir)
-python scripts/veri_indir.py --kume tusrec2024 --hedef D:/SerbestEl-veri/tusrec2024
-#    kesilirse aynı komutu tekrar çalıştır: kaldığı yerden devam eder
-
-# 2) denek bazlı bölmeyi ÜRET ve SABİTLE — bir kere
-python src/bolme.py --veri <veri>/frames_transfs
-
-# 3) referansı eğit (değiştirmeden; 4 GiB karta uyarlanmış çalıştırma)
-python src/egit.py --veri <veri> --epok 20000
-python src/egit.py --devam                   # kesilirse kaldığı yerden
-
-# 4) dört ölçüyü hesapla — projenin omurgası olan tablo
-python src/olcum.py --veri <veri> --agirlik results/faz2_referans/en_iyi_model.pt \
-                    --kume test --cikti results/faz2_referans/olculer.json
+python scripts/faz2_hazirla.py --kaynak D:/SerbestEl-veri/tusrec2024
 ```
 
-**Test kümesine 3. adımda dokunulmaz.** `src/egit.py` bölmeyi yükler, test
-deneklerini ayırır ve eğitimde kullanmaz.
+Bu betik zip'leri **paralel** açar (96,5 GB / 7,4 dk), veri düzenini çözer,
+denek bazlı bölmeyi üretir, dört test takımını koşar ve eğitimin gerçekten
+başladığını 2 epokla doğrular. Tekrar çalıştırmak güvenli: açılmış zip'i
+atlar, mevcut bölmeye dokunmaz.
+
+Sonra:
+
+```bash
+# eğitim — SIFIRDAN, süre bütçesiyle (aşağıdaki sızıntı notuna bak)
+python src/egit.py --veri D:/SerbestEl-veri/tusrec2024/acilmis \
+    --on-egitimli yok --isci 6 --sure-siniri 210 --epok 100000
+python src/egit.py --devam                   # kesilirse kaldığı yerden
+
+# dört ölçü — projenin omurgası olan tablo
+python src/olcum.py --veri D:/SerbestEl-veri/tusrec2024/acilmis \
+    --agirlik results/faz2_referans/en_iyi_model.pt --kume test \
+    --cikti results/faz2_referans/olculer.json
+```
+
+**Test kümesine eğitim sırasında dokunulmaz.** `src/egit.py` bölmeyi yükler,
+test deneklerini ayırır ve eğitimde kullanmaz.
+
+### Bölme sabit
+
+`configs/bolme.json` — 30 eğitim / 10 doğrulama / 10 test denek, tohum
+20260915. **Bu dosya bir daha değişmez.** Değişirse önceki bütün ölçümler
+karşılaştırılamaz hâle gelir; `src/bolme.py` üzerine yazmak için açıkça
+`--yeniden-uret` ister.
+
+### Neden sıfırdan eğitiliyor — ön eğitimli ağırlık da sızıntıdır
+
+Referans `train.py` eğitime sıfırdan başlamıyor: `efficientnet_b1(weights=None)`
+kuruyor, sonra hemen üzerine `TUS-REC2024_model/model_weights` yüklüyor. O
+ağırlıklar **TUS-REC2024 eğitim kümesinde** eğitilmiş — yani elimizdeki 50
+deneğin hepsinde.
+
+Bölmeyi denek bazında yapmak bunu çözmez: test deneklerimizi eğitimden
+ayırsak bile yüklediğimiz ağırlık onları zaten görmüştür. Skor şişer, hata
+mesajı çıkmaz. Bu yüzden Faz 2 eğitimi `--on-egitimli yok` ile yapılıyor.
+
+Bedeli açık: referansın 20.000 epokluk bütçesi bu donanımda günler sürer,
+dolayısıyla modelimiz eksik eğitilmiş oluyor. `--sure-siniri` deneyi epok
+yerine **süreyle** sabitliyor, böylece bütçe raporlanabilir bir sayı oluyor.
+
+Ön eğitimli ağırlık yine de ölçülüyor, ama rolü açıkça etiketli:
+
+| Model | Test kümesi | Temiz mi | Rolü |
+|---|---|---|---|
+| Ön eğitimli 2024 | 2024 test denekleri | **hayır — sızıntılı** | Üst sınır |
+| Ön eğitimli 2024 | 2025 dönen doğrulama (050–052) | evet | Gerçek kıyas noktası |
+| Bizim (sıfırdan) | 2024 test denekleri | evet | Faz 2'nin asıl sayısı |
+
+050–052'nin temiz olduğu varsayılmadı, kontrol edildi: yarışma belgesi
+*"patient IDs are consistent across datasets"* diyor, TUS-REC2024 eğitim
+kümesi 000–049 — kesişim boş.
 
 ### Neden kendi eğitim döngümüz var
 
