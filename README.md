@@ -170,6 +170,68 @@ Kare sayısıyla GP bağdaşımı yalnızca **0,24**, LP ile GP bağdaşımı **
 yani sürüklenme ne tarama uzunluğunun ne de kare başına hatanın basit bir
 sonucu. Faz 3 farkın nereden geldiğini ölçüyor.
 
+### Bölme sabit
+
+`configs/bolme.json` — 30 eğitim / 10 doğrulama / 10 test denek, tohum
+20260915. **Bu dosya bir daha değişmez.** Değişirse önceki bütün ölçümler
+karşılaştırılamaz hâle gelir; `src/bolme.py` üzerine yazmak için açıkça
+`--yeniden-uret` ister.
+
+### Neden sıfırdan eğitiliyor — ön eğitimli ağırlık da sızıntıdır
+
+Referans `train.py` eğitime sıfırdan başlamıyor: `efficientnet_b1(weights=None)`
+kuruyor, sonra hemen üzerine `TUS-REC2024_model/model_weights` yüklüyor. O
+ağırlıklar **TUS-REC2024 eğitim kümesinde** eğitilmiş — yani elimizdeki 50
+deneğin hepsinde.
+
+Bölmeyi denek bazında yapmak bunu çözmez: test deneklerimizi eğitimden
+ayırsak bile yüklediğimiz ağırlık onları zaten görmüştür. Skor şişer, hata
+mesajı çıkmaz. Bu yüzden Faz 2 eğitimi `--on-egitimli yok` ile yapılıyor.
+
+Bedeli açık: referansın 20.000 epokluk bütçesi bu donanımda günler sürer,
+dolayısıyla modelimiz eksik eğitilmiş oluyor. `--sure-siniri` deneyi epok
+yerine **süreyle** sabitliyor, böylece bütçe raporlanabilir bir sayı oluyor.
+
+Ön eğitimli ağırlık yine de ölçülüyor, ama rolü açıkça etiketli:
+
+| Model | Test kümesi | Temiz mi | Rolü |
+|---|---|---|---|
+| Ön eğitimli 2024 | 2024 test denekleri | **hayır — sızıntılı** | Üst sınır |
+| Ön eğitimli 2024 | 2025 dönen doğrulama (050–052) | evet | Gerçek kıyas noktası |
+| Bizim (sıfırdan) | 2024 test denekleri | evet | Faz 2'nin asıl sayısı |
+
+050–052'nin temiz olduğu varsayılmadı, kontrol edildi: yarışma belgesi
+*"patient IDs are consistent across datasets"* diyor, TUS-REC2024 eğitim
+kümesi 000–049 — kesişim boş.
+
+### Neden kendi eğitim döngümüz var
+
+Referans `train.py` Windows'ta koşmuyor: bütün kod modül seviyesinde,
+`if __name__ == "__main__"` koruması yok, ama DataLoader `num_workers=8` ile
+kuruluyor. Windows `spawn` kullandığı için her işçi süreç betiği baştan
+çalıştırıp yeni süreç doğurmaya kalkıyor. Linux'ta `fork` olduğu için orada
+hiç görünmeyen bir kusur.
+
+`src/egit.py` ağı, kaybı, etiket dönüşümlerini ve veri yükleyiciyi
+referanstan **doğrudan ithal ediyor** — matematiğe dokunulmadı. Değişen
+yalnızca çalıştırma biçimi: koruma, AMP, gradyan biriktirme, denek bazlı
+bölme, sürdürülebilirlik.
+
+Gradyan biriktirme matematiği değiştirmez: 8'lik iki yığından gelen gradyanlar
+toplanıp tek adımda uygulanıyor, 16'lık tek yığın gibi. Referans ayarının
+(`MINIBATCH_SIZE=16`) 4 GiB'deki tam karşılığı budur.
+
+### Ölçümde referanstan iki ayrılış — matematik aynı
+
+| | Referans | Bizde | Kanıt |
+|---|---|---|---|
+| İleri geçiş | Kare kare, yığın 1 | Pencereler toplu | `test_olcum.py` T1: yığın 1'de fark **tam sıfır**; T1b: dört sayıya etkisi %0,04'ün altında |
+| Ölçüm | Dört DDF'yi bellekte kurar (~11,6 GB) | DDF kurmadan, blokla (~88 MB) | T2: dört sayı referansla aynı (bağıl fark 4·10⁻⁷) |
+
+İkincisi bir cebir sadeleşmesine dayanıyor: ölçülen şey iki DDF'nin farkı ve
+`DDF_gerçek − DDF_tahmin = T_gerçek·p − T_tahmin·p` — noktanın kendi konumu
+sadeleşiyor, DDF'leri kurmaya hiç gerek kalmıyor.
+
 ## Faz 3 — hata analizi
 
 Yol haritası bu fazdan **tek bir cümle** istiyor: "hata şu durumda, şu sebepten
@@ -281,68 +343,6 @@ bölünce o taramaların GP'si patladı ve **küme ortalaması 12.669 mm'ye
 çıktı**. Tek bir geçersiz tarama 240'lık ortalamayı tek başına bozuyor.
 Kapı artık `a`'yı da sınırlıyor (`0,2 ≤ a ≤ 5`); `tests/test_analiz.py` A6
 beş ayrı geçersiz durumu kilitliyor.
-
-### Bölme sabit
-
-`configs/bolme.json` — 30 eğitim / 10 doğrulama / 10 test denek, tohum
-20260915. **Bu dosya bir daha değişmez.** Değişirse önceki bütün ölçümler
-karşılaştırılamaz hâle gelir; `src/bolme.py` üzerine yazmak için açıkça
-`--yeniden-uret` ister.
-
-### Neden sıfırdan eğitiliyor — ön eğitimli ağırlık da sızıntıdır
-
-Referans `train.py` eğitime sıfırdan başlamıyor: `efficientnet_b1(weights=None)`
-kuruyor, sonra hemen üzerine `TUS-REC2024_model/model_weights` yüklüyor. O
-ağırlıklar **TUS-REC2024 eğitim kümesinde** eğitilmiş — yani elimizdeki 50
-deneğin hepsinde.
-
-Bölmeyi denek bazında yapmak bunu çözmez: test deneklerimizi eğitimden
-ayırsak bile yüklediğimiz ağırlık onları zaten görmüştür. Skor şişer, hata
-mesajı çıkmaz. Bu yüzden Faz 2 eğitimi `--on-egitimli yok` ile yapılıyor.
-
-Bedeli açık: referansın 20.000 epokluk bütçesi bu donanımda günler sürer,
-dolayısıyla modelimiz eksik eğitilmiş oluyor. `--sure-siniri` deneyi epok
-yerine **süreyle** sabitliyor, böylece bütçe raporlanabilir bir sayı oluyor.
-
-Ön eğitimli ağırlık yine de ölçülüyor, ama rolü açıkça etiketli:
-
-| Model | Test kümesi | Temiz mi | Rolü |
-|---|---|---|---|
-| Ön eğitimli 2024 | 2024 test denekleri | **hayır — sızıntılı** | Üst sınır |
-| Ön eğitimli 2024 | 2025 dönen doğrulama (050–052) | evet | Gerçek kıyas noktası |
-| Bizim (sıfırdan) | 2024 test denekleri | evet | Faz 2'nin asıl sayısı |
-
-050–052'nin temiz olduğu varsayılmadı, kontrol edildi: yarışma belgesi
-*"patient IDs are consistent across datasets"* diyor, TUS-REC2024 eğitim
-kümesi 000–049 — kesişim boş.
-
-### Neden kendi eğitim döngümüz var
-
-Referans `train.py` Windows'ta koşmuyor: bütün kod modül seviyesinde,
-`if __name__ == "__main__"` koruması yok, ama DataLoader `num_workers=8` ile
-kuruluyor. Windows `spawn` kullandığı için her işçi süreç betiği baştan
-çalıştırıp yeni süreç doğurmaya kalkıyor. Linux'ta `fork` olduğu için orada
-hiç görünmeyen bir kusur.
-
-`src/egit.py` ağı, kaybı, etiket dönüşümlerini ve veri yükleyiciyi
-referanstan **doğrudan ithal ediyor** — matematiğe dokunulmadı. Değişen
-yalnızca çalıştırma biçimi: koruma, AMP, gradyan biriktirme, denek bazlı
-bölme, sürdürülebilirlik.
-
-Gradyan biriktirme matematiği değiştirmez: 8'lik iki yığından gelen gradyanlar
-toplanıp tek adımda uygulanıyor, 16'lık tek yığın gibi. Referans ayarının
-(`MINIBATCH_SIZE=16`) 4 GiB'deki tam karşılığı budur.
-
-### Ölçümde referanstan iki ayrılış — matematik aynı
-
-| | Referans | Bizde | Kanıt |
-|---|---|---|---|
-| İleri geçiş | Kare kare, yığın 1 | Pencereler toplu | `test_olcum.py` T1: yığın 1'de fark **tam sıfır**; T1b: dört sayıya etkisi %0,04'ün altında |
-| Ölçüm | Dört DDF'yi bellekte kurar (~11,6 GB) | DDF kurmadan, blokla (~88 MB) | T2: dört sayı referansla aynı (bağıl fark 4·10⁻⁷) |
-
-İkincisi bir cebir sadeleşmesine dayanıyor: ölçülen şey iki DDF'nin farkı ve
-`DDF_gerçek − DDF_tahmin = T_gerçek·p − T_tahmin·p` — noktanın kendi konumu
-sadeleşiyor, DDF'leri kurmaya hiç gerek kalmıyor.
 
 ## Donanım
 
