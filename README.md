@@ -195,9 +195,23 @@ Dört bağımsız ölçüm aynı yeri gösteriyor:
 
 Tarama başına bakıldığında da aynı: `|r|` ortancası 0,06–0,14.
 
-**Kod bunu uydurmuyor.** Aynı kod yolu ön eğitimli referans modelde
-öteleme için `a = 0,68 / 0,64` ve `r = +0,84 / +0,90` ölçüyor. Ölçüm
-bağdaşım varken onu görüyor; burada yok.
+**Kod bunu uydurmuyor — kontrol koşuldu.** Ön eğitimli referans modeli
+**aynı** veride, **aynı** test kümesinde, **aynı** kod yolundan geçirdik
+(`results/faz3_onegitimli_2024test_SIZINTILI/`):
+
+| Bileşen | öteleme x | öteleme y | öteleme z | dönme x | dönme y | dönme z |
+|---|---|---|---|---|---|---|
+| Ön eğitimli, a | 0,732 | 0,301 | 0,580 | 0,089 | 0,123 | 0,289 |
+| Ön eğitimli, r | **+0,844** | **+0,529** | **+0,772** | +0,268 | +0,309 | +0,492 |
+| Bizim, r | −0,015 | −0,008 | −0,020 | +0,000 | +0,023 | −0,000 |
+
+Ölçüm, bağdaşım varken onu görüyor. Bizim modelimizde yok.
+
+> **Uyarı:** ön eğitimli satır **sızıntılı** — o ağırlıklar bu 10 test
+> deneğini de içeren kümede eğitildi. GP/LP değerleri iyimser, doğruluk
+> kıyaslaması için kullanılamaz. Burada kullanılan şey hatanın *yapısı*:
+> bağdaşımın varlığı sızıntıdan etkilenmez, çünkü sızıntı bağdaşımı
+> yaratmaz — yalnızca büyütür.
 
 **2. Büyüme doğrusal, karekök değil.** Doğrusal artık **0,00063**, karekök
 artık **0,02843** — 45 kat daha iyi uyum. Yansız gürültü `√N` ile büyürdü;
@@ -216,6 +230,20 @@ sürümü *her* taramada iyileştiriyor; dürüst sürüm yazı tura. Demek ki
 yanlılık **taramaya özgü**, modelin sabit bir kusuru değil — tek bir global
 düzeltmeyle giderilemez.
 
+Ve bu, çökmüş modele özgü bir durum **değil**. Ön eğitimli model aynı test
+kümesinde aynı yapıyı gösteriyor:
+
+| Model | GP | Kehanet | Dürüst | Kehanet kaç taramada iyileştirdi |
+|---|---|---|---|---|
+| Bizim (temiz) | 86,93 mm | 14,41 mm (−%83) | 87,86 mm (+%1) | 240 / 240 |
+| Ön eğitimli (sızıntılı) | 10,34 mm | 4,91 mm (−%53) | 10,54 mm (+%2) | 231 / 240 |
+
+İki model arasında sekiz kat doğruluk farkı var, ama **ikisinde de**: büyüme
+doğrusal, tarama başına yanlılığı gidermek sürüklenmenin yarısından fazlasını
+siliyor, ve tek bir global yanlılık hiçbir şey kazandırmıyor. Yani *tarama
+başına yanlılık* bu yöntemin yapısal özelliği, bizim modelimizin arızası
+değil.
+
 **4. Görsel doğruluyor.** En kötü taramaların yörünge çizimlerinde gerçek
 yol 210 mm boyunca kıvrılıp geri dönerken tahmin **kısa ve dümdüz bir
 çizgi** (`results/faz3_bizim_2024test/en_kotu/`). Sabit bir dönüşümü
@@ -227,13 +255,22 @@ var — sürüklenme düzgün, ani olaylardan gelmiyor.
 
 ### Bunun Faz 4 için anlamı
 
-Sürüklenme düzeltmesi **yanlış hedef**. Yanlılık taramadan taramaya
-değiştiği için sabit bir düzeltme çalışmıyor (yukarıdaki üçüncü satır).
-Asıl sorun modelin bu bütçede regresyon çöküşüne düşmüş olması: veri
-kümesinin ortalama hareketini öğrenmiş, kareye özgü hareketi değil.
-İlk iş daha uzun/daha iyi eğitim ve öğrenme oranı azaltması; sürüklenmeye
-özgü fikirler (tutarlılık kısıtı, uzun zamansal bağlam) ancak model
-hareketi *gerçekten* tahmin etmeye başladıktan sonra anlamlı ölçülebilir.
+**Birinci öncelik — çöküşten çıkmak.** Bizim modelimiz bu bütçede regresyon
+çöküşünde: veri kümesinin ortalama hareketini öğrenmiş, kareye özgü
+hareketi değil. Sürüklenmeye özgü hiçbir fikir (tutarlılık kısıtı, uzun
+zamansal bağlam, dönme temsili) bu haldeki bir modelde anlamlı ölçülemez —
+ölçtüğün şey fikrin katkısı değil, çöküşün derinliği olur. Daha uzun
+eğitim, öğrenme oranı azaltması, ve **her koşumda bağdaşım kontrolü**.
+
+**İkinci öncelik — dönme.** Ön eğitimli model bile dönmeyi öteleme kadar
+iyi görmüyor: öteleme ölçeği 0,30–0,73 iken dönme ölçeği **0,09–0,29**.
+Dönme sistematik olarak küçümseniyor. Yol haritasının B maddesi (dönme
+temsilini değiştirmek) buraya doğrudan oturuyor ve artık **ölçülmüş bir
+gerekçesi** var.
+
+**Hedef olmayan — global sürüklenme düzeltmesi.** Test edildi ve iki modelde
+de işe yaramadı (+%1 ve +%2). Yanlılık gerçek ve büyük ama taramaya özgü;
+tek bir sabit düzeltmeyle giderilemez.
 
 ### Ölçülen tuzak: tek kapı yetmedi
 
