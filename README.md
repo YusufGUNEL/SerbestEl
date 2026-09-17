@@ -341,8 +341,15 @@ bileşenlerde `a ≈ 0,0001` iken 240 taramanın birkaçında bir bileşenin `r`
 şans eseri eşiği geçti (tarama başına en büyük `|r|` = 0,761); 0,0001'e
 bölünce o taramaların GP'si patladı ve **küme ortalaması 12.669 mm'ye
 çıktı**. Tek bir geçersiz tarama 240'lık ortalamayı tek başına bozuyor.
+
 Kapı artık `a`'yı da sınırlıyor (`0,2 ≤ a ≤ 5`); `tests/test_analiz.py` A6
-beş ayrı geçersiz durumu kilitliyor.
+beş ayrı geçersiz durumu kilitliyor. Düzeltilmiş kapıyla aynı koşum:
+**86,934 → 86,934 mm, %0,0** — hiçbir bileşen kapıdan geçmiyor.
+
+Yorumlanabilir cevap bu. 12.669 mm "düzeltme sonucu" değil, sıfıra
+bölmenin gürültüsüydü; %0,0 ise gerçek bilgiyi veriyor: **düzeltilecek bir
+ölçek yok, çünkü ortada sinyal yok.** Bir teşhis aracının "hiçbir şey
+yapamıyorum" diyebilmesi, uydurma bir sayı üretmesinden iyidir.
 
 ## Donanım
 
