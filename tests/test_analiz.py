@@ -161,16 +161,27 @@ def a6_guvenilirlik_kapisi_calisiyor() -> None:
     kosumda GP 38 mm'den 128 mm'e cikmisti.
     """
     v = torch.arange(12, dtype=torch.float64).reshape(2, 6)
-    a = torch.tensor([0.5, 0.5, 0.5, 0.02, 0.5, 0.5], dtype=torch.float64)
+    #          bilesen:   0     1      2      3      4      5
+    a = torch.tensor([0.5, 0.02, 0.0001, -0.8, 9.0, 0.5], dtype=torch.float64)
     b = torch.zeros(6, dtype=torch.float64)
-    r = torch.tensor([0.9, 0.9, 0.9, 0.04, 0.9, 0.9], dtype=torch.float64)
+    r = torch.tensor([0.9, 0.04, 0.60, 0.90, 0.90, 0.9], dtype=torch.float64)
 
     cikti = olcegi_duzelt(v, a, b, r, r_esik=0.5)
-    dokunulmadi = torch.allclose(cikti[:, 3], v[:, 3].double())
-    olceklendi = torch.allclose(cikti[:, 0], v[:, 0].double() / 0.5)
-    kontrol("A6 guvenilirlik kapisi calisiyor", dokunulmadi and olceklendi,
-            f"r=0,04 bileseni dokunulmadi={dokunulmadi}, "
-            f"r=0,9 bileseni olceklendi={olceklendi}")
+    durum = {
+        "0 gecerli (a=0,5 r=0,9) olceklendi":
+            torch.allclose(cikti[:, 0], v[:, 0].double() / 0.5),
+        "1 dusuk r dokunulmadi": torch.allclose(cikti[:, 1], v[:, 1].double()),
+        # r kapisini geciyor ama a ~ 0: eski surumde tam burasi patliyordu
+        "2 a~0 ama r yuksek dokunulmadi":
+            torch.allclose(cikti[:, 2], v[:, 2].double()),
+        "3 a negatif dokunulmadi": torch.allclose(cikti[:, 3], v[:, 3].double()),
+        "4 a cok buyuk dokunulmadi": torch.allclose(cikti[:, 4], v[:, 4].double()),
+    }
+    kontrol("A6 guvenilirlik kapisi calisiyor", all(durum.values()),
+            ", ".join(k for k, v_ in durum.items() if v_)
+            + ("" if all(durum.values())
+               else "  BASARISIZ: " + ", ".join(k for k, v_ in durum.items()
+                                                if not v_)))
 
 
 def a7_sicrama_bulunuyor() -> None:

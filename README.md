@@ -170,6 +170,81 @@ Kare sayısıyla GP bağdaşımı yalnızca **0,24**, LP ile GP bağdaşımı **
 yani sürüklenme ne tarama uzunluğunun ne de kare başına hatanın basit bir
 sonucu. Faz 3 farkın nereden geldiğini ölçüyor.
 
+## Faz 3 — hata analizi
+
+Yol haritası bu fazdan **tek bir cümle** istiyor: "hata şu durumda, şu sebepten
+birikiyor." Ölçüm: `python src/analiz.py`, 240 test taraması, 48 taramalık
+ayrı bir yanlılık kümesi (`results/faz3_bizim_2024test/`).
+
+### Teşhis
+
+> **Model kareye özgü hareketi tahmin etmiyor; girdiden bağımsız, neredeyse
+> sabit bir dönüşüm üretiyor. Her taramanın kendi ortalama hareketi bu
+> sabitten farklı olduğu için fark tarama boyunca aynı yönde kalıyor,
+> zincirde doğrusal birikiyor ve küresel hatanın %83'ünü oluşturuyor.**
+
+Dört bağımsız ölçüm aynı yeri gösteriyor:
+
+**1. Tahmin gerçek hareketle ilişkili değil.** Bileşen bileşen
+`tahmin ≈ a·gerçek + b` uydurması, altı bileşenin hepsinde:
+
+| | öteleme x | öteleme y | öteleme z | dönme x | dönme y | dönme z |
+|---|---|---|---|---|---|---|
+| a | −0,0001 | −0,0001 | −0,0001 | 0,0001 | 0,0081 | −0,0001 |
+| r | −0,015 | −0,008 | −0,020 | +0,000 | +0,023 | −0,000 |
+
+Tarama başına bakıldığında da aynı: `|r|` ortancası 0,06–0,14.
+
+**Kod bunu uydurmuyor.** Aynı kod yolu ön eğitimli referans modelde
+öteleme için `a = 0,68 / 0,64` ve `r = +0,84 / +0,90` ölçüyor. Ölçüm
+bağdaşım varken onu görüyor; burada yok.
+
+**2. Büyüme doğrusal, karekök değil.** Doğrusal artık **0,00063**, karekök
+artık **0,02843** — 45 kat daha iyi uyum. Yansız gürültü `√N` ile büyürdü;
+`N` ile büyümek yanlılığın imzası (`suruklenme_egrileri.png`).
+
+**3. Yanlılığı geri almak sürüklenmenin %83'ünü siliyor.**
+
+| | GP | Değişim | Kaç taramada iyileşti |
+|---|---|---|---|
+| Ham | 86,93 mm | — | — |
+| Kehanet (taramanın kendi yanlılığı) | **14,41 mm** | **−%83,4** | **240 / 240** |
+| Dürüst (başka deneklerde ölçülen tek yanlılık) | 87,86 mm | +%1,1 | 118 / 240 |
+
+**Bu tablodaki asıl bilgi ikinci satır değil, üçüncü satır.** Kehanet
+sürümü *her* taramada iyileştiriyor; dürüst sürüm yazı tura. Demek ki
+yanlılık **taramaya özgü**, modelin sabit bir kusuru değil — tek bir global
+düzeltmeyle giderilemez.
+
+**4. Görsel doğruluyor.** En kötü taramaların yörünge çizimlerinde gerçek
+yol 210 mm boyunca kıvrılıp geri dönerken tahmin **kısa ve dümdüz bir
+çizgi** (`results/faz3_bizim_2024test/en_kotu/`). Sabit bir dönüşümü
+zincirlemek tam olarak düz bir çizgi verir.
+
+Yan ölçümler: kare başına hata hızla bağdaşımı **+0,90** (en yavaş %10
+karede 0,19 mm, en hızlı %10'da 0,64 mm). Sıçrama yalnızca 38/240 taramada
+var — sürüklenme düzgün, ani olaylardan gelmiyor.
+
+### Bunun Faz 4 için anlamı
+
+Sürüklenme düzeltmesi **yanlış hedef**. Yanlılık taramadan taramaya
+değiştiği için sabit bir düzeltme çalışmıyor (yukarıdaki üçüncü satır).
+Asıl sorun modelin bu bütçede regresyon çöküşüne düşmüş olması: veri
+kümesinin ortalama hareketini öğrenmiş, kareye özgü hareketi değil.
+İlk iş daha uzun/daha iyi eğitim ve öğrenme oranı azaltması; sürüklenmeye
+özgü fikirler (tutarlılık kısıtı, uzun zamansal bağlam) ancak model
+hareketi *gerçekten* tahmin etmeye başladıktan sonra anlamlı ölçülebilir.
+
+### Ölçülen tuzak: tek kapı yetmedi
+
+Ölçek düzeltmesine önce yalnızca `|r| ≥ 0,5` kapısı kondu. Bütün
+bileşenlerde `a ≈ 0,0001` iken 240 taramanın birkaçında bir bileşenin `r`'si
+şans eseri eşiği geçti (tarama başına en büyük `|r|` = 0,761); 0,0001'e
+bölünce o taramaların GP'si patladı ve **küme ortalaması 12.669 mm'ye
+çıktı**. Tek bir geçersiz tarama 240'lık ortalamayı tek başına bozuyor.
+Kapı artık `a`'yı da sınırlıyor (`0,2 ≤ a ≤ 5`); `tests/test_analiz.py` A6
+beş ayrı geçersiz durumu kilitliyor.
+
 ### Bölme sabit
 
 `configs/bolme.json` — 30 eğitim / 10 doğrulama / 10 test denek, tohum

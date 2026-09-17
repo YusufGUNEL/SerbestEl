@@ -137,23 +137,36 @@ def dogrusal_uydur(gercek: torch.Tensor, tahmin: torch.Tensor):
 
 
 def olcegi_duzelt(tahmin_v: torch.Tensor, a: torch.Tensor, b: torch.Tensor,
-                  r: torch.Tensor, r_esik: float = 0.5) -> torch.Tensor:
+                  r: torch.Tensor, r_esik: float = 0.5,
+                  a_alt: float = 0.2, a_ust: float = 5.0) -> torch.Tensor:
     """tahmin ~ a.gercek + b uydurmasini tersine cevirir: (tahmin - b) / a.
 
     GUVENILIRLIK KAPISI — bu olmadan deney anlamsiz
       a katsayisi ancak bilesen gercekten tahmin ediliyorsa anlamli. Bagdasim
       sifira yakinsa (r ~ 0) model o bileseni hic bilmiyor demektir; a da
-      sifira yakin cikar ve a'ya bolmek gurultuyu 50 kat buyutur. Olculdu:
-      kapisiz surumde GP 38 mm'den 128 mm'e CIKIYOR.
+      sifira yakin cikar ve a'ya bolmek gurultuyu buyutur.
 
-      Olmayan bir sinyal olceklenerek geri getirilemez. Bu yuzden yalnizca
-      r >= r_esik olan bilesenler duzeltilir, digerleri oldugu gibi kalir —
-      ve hangilerinin duzeltilmedigi raporlanir, cunku asil bulgu odur.
+      Olmayan bir sinyal olceklenerek geri getirilemez.
+
+    IKI KAPI GEREKIYOR — tek basina r YETMEDI, olculdu
+      Ilk surumde yalnizca r kapisi vardi. Kendi modelimizde butun
+      bilesenlerde a ~ 0,0001 iken, 240 taramanin birkacinda bir bilesenin
+      r'si sans eseri 0,5'i gecti; 0,0001'e bolunce o taramalarin GP'si
+      patladi ve ORTALAMA 12.669 mm'ye cikti. Tek bir gecersiz tarama
+      kume ortalamasini tek basina bozuyor.
+
+      Bu yuzden a'nin kendisi de sinirli: a_alt <= a <= a_ust. a negatifse
+      ya da sifira yakinsa duzeltme yok — orada duzeltilecek bir olcek yok,
+      tahmin edilmemis bir bilesen var.
+
+    Raporlanmasi gereken sey hangi bilesenlerin duzeltildigi DEGIL,
+    hangilerinin duzeltilemedigidir: duzeltilemeyen bilesen modelin hic
+    ogrenmedigi bilesendir.
     """
-    duzelt = r.abs() >= r_esik
+    duzelt = (r.abs() >= r_esik) & (a >= a_alt) & (a <= a_ust)
     a_g = torch.where(duzelt, a, torch.ones_like(a))
     b_g = torch.where(duzelt, b, torch.zeros_like(b))
-    return (tahmin_v.double() - b_g) / a_g.clamp(min=1e-6)
+    return (tahmin_v.double() - b_g) / a_g
 
 
 def kare_basi_mesafe(T_a: torch.Tensor, T_b: torch.Tensor,

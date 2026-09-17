@@ -141,6 +141,7 @@
     <li><a href="#k17">Ön eğitimli ağırlık da sızıntı taşır</a></li>
     <li><a href="#k18">Hatayı teşhis etmek: sabit yanlılık mı, çarpımsal sapma mı</a></li>
     <li><a href="#k19">Epok bütçesi: "20.000 epok" ne demek, bizimki neden 178</a></li>
+    <li><a href="#k20">Regresyon çöküşü: ortalamayı tahmin eden model</a></li>
     <li class="bek">Faz ilerledikçe eklenecek…</li>
   </ol>
 </div>
@@ -897,6 +898,61 @@ model.load_state_dict(torch.load(
       <h4>Nerede durduk</h4>
       <p>Doğrulama mesafesi epok 55'ten sonra 0,40–0,44 mm bandında düzleşti; en iyi değer <b>0,4022 mm</b> (epok 150) ve sonraki 27 epokta iyileşme gelmedi. Öğrenme oranı sabit 1e-4, azaltma yok — sabit oranda platoda beklemenin getirisi düşüktür. Koşum orada kesildi.</p>
       <p><b>Eğitim mesafesi doğrulamanınkinin üstünde kaldı</b> (0,53 / 0,42 mm). Bu ters görünür ama aşırı uydurma yok demek değil: eğitim mesafesi epok boyunca, karma hassasiyetle ve model <i>değişirken</i> ölçülüyor; doğrulama ise epok sonunda, <code>eval</code> kipinde ve ayrı deneklerde. İki sayı aynı şeyi ölçmüyor.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KONU 20 ============ -->
+<div class="konu" id="k20">
+  <div class="kbas"><span class="kno">20</span><h2>Regresyon çöküşü: ortalamayı tahmin eden model</h2><span class="kfaz">Faz 3</span></div>
+  <div class="kgov">
+    <p>Faz 2'nin modeli koştu, kayıp 96,8'den 0,13'e indi, doğrulama mesafesi 0,40 mm'ye oturdu. Eğri güzel, sayı makul. <b>Ama model hiçbir şey öğrenmemişti.</b> Bu konu, o tuzağın nasıl görüldüğünü anlatıyor.</p>
+
+    <div class="blok">
+      <h4>Çöküş nedir</h4>
+      <p>Kareler arası hareket küçük ve dar bir aralıkta: tipik olarak 0,4 mm/kare. Ağ, girdiye hiç bakmadan <b>hep aynı ortalama hareketi</b> söylerse MSE kaybı zaten epey düşük çıkar. Gradyan inişi için bu rahat bir yerel çözüm — girdiyle çıktı arasındaki asıl ilişkiyi kurmak çok daha zor.</p>
+      <p>Sonuç: ağ bir <b>sabit</b> öğrenir. Kayıp düşer, mesafe metriği makul görünür, ve model bir <i>görüntü işleme</i> modeli değil bir <i>ortalama</i> olur.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">Neden kayıp ve mesafe bunu göstermiyor</span>
+      Her iki metrik de <b>hatanın büyüklüğünü</b> ölçüyor, <b>yapısını</b> değil. Ortalamayı söyleyen bir modelin kare başına hatası, gerçek hareketin ortalaması etrafındaki saçılım kadardır — bizde LP = 0,386 mm, gayet "iyi" görünen bir sayı.
+      <p style="margin-top:7px">Çöküş ancak <b>tahmin ile gerçeğin ilişkisine</b> bakınca görünüyor. Tek bir sayı yeter: bağdaşım.</p></div>
+
+    <div class="blok">
+      <h4>Ölçüm: bileşen bileşen bağdaşım</h4>
+      <p>Konu 18'deki <code>tahmin ≈ a·gerçek + b</code> uydurmasının <code>r</code>'si tam olarak bunu söylüyor. Ölçülen:</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Model</th><th>öteleme x</th><th>öteleme y</th><th>dönme z</th><th>Okunuşu</th></tr></thead>
+      <tbody>
+        <tr><td>Ön eğitimli referans</td><td>r = +0,84</td><td>r = +0,90</td><td>r = +0,91</td><td><b class="sec">Hareketi gerçekten görüyor</b></td></tr>
+        <tr><td><b>Bizim (178 epok)</b></td><td><b class="ele">r = −0,015</b></td><td><b class="ele">r = −0,008</b></td><td><b class="ele">r = −0,000</b></td><td><b class="ele">Girdiden bağımsız sabit</b></td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="kutu"><span class="kt">Üst satır neden şart</span>
+      Alt satır tek başına "ölçüm bozuk olabilir" demektir. <b>Aynı kod yolu</b> ön eğitimli modelde 0,84–0,91 bağdaşım buluyor — yani ölçüm, bağdaşım varken onu görüyor. Kontrol satırı olmadan alt satır hiçbir şey kanıtlamaz.</div>
+
+    <div class="blok">
+      <h4>Çöküşün sürüklenmeye yaptığı</h4>
+      <p>Sabit bir dönüşümü zincirlemek, uzayda <b>düz bir çizgi</b> verir. Nitekim en kötü taramaların yörünge çiziminde gerçek yol 210 mm boyunca kıvrılıp geri dönerken tahmin kısa ve dümdüz bir çizgi.</p>
+      <p>Her taramanın kendi ortalama hareketi bu tek sabitten farklı. Fark tarama boyunca <b>aynı yönde</b> kalıyor — yani tam olarak konu 15'in anlattığı yanlılık — ve zincirde doğrusal birikiyor. Ölçülen: küresel hatanın <b>%83'ü</b> bu sabit farktan.</p>
+    </div>
+
+    <div class="kutu"><span class="kt">İki düzeltmenin farkı teşhisi tamamlıyor</span>
+      <b>Kehanet</b> (her taramanın kendi yanlılığı geri alınır): GP 86,9 → 14,4 mm, ve <b>240 taramanın 240'ında</b> iyileşiyor.<br>
+      <b>Dürüst</b> (başka deneklerde ölçülen tek yanlılık uygulanır): GP 86,9 → 87,9 mm, yalnızca 118/240'ta iyileşiyor — <b>yazı tura</b>.
+      <p style="margin-top:7px">Yanlılık gerçek ve büyük, ama <b>taramaya özgü</b>. Sabit bir düzeltmeyle giderilemez. Bu ayrım Faz 4'ün yönünü değiştiriyor: sürüklenmeye özgü fikirler (tutarlılık kısıtı, uzun bağlam) burada boşa gider; önce modelin hareketi <b>gerçekten</b> tahmin etmesi gerekiyor.</div>
+
+    <div class="blok">
+      <h4>Alınacak ders</h4>
+      <ul>
+        <li>Düşen bir kayıp eğrisi <b>öğrenmenin kanıtı değil</b>. Çökmüş model de düzgün bir eğri çizer.</li>
+        <li>Regresyonda her zaman <b>tahmin–gerçek bağdaşımını</b> ölç. Tek satır kod, çöküşü anında gösteriyor.</li>
+        <li>Basit temel çizgiyi hesapla: "hep ortalamayı söyleseydim metriğim ne olurdu?" Model bunu belirgin biçimde geçmiyorsa öğrenmemiştir.</li>
+        <li>Her teşhis ölçümünün bir <b>kontrol grubu</b> olmalı — ölçümün çalıştığını gösteren, bilinen-iyi bir durum.</li>
+      </ul>
     </div>
   </div>
 </div>
