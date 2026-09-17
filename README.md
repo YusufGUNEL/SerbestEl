@@ -141,6 +141,35 @@ python src/olcum.py --veri D:/SerbestEl-veri/tusrec2024/acilmis \
 **Test kümesine eğitim sırasında dokunulmaz.** `src/egit.py` bölmeyi yükler,
 test deneklerini ayırır ve eğitimde kullanmaz.
 
+### Faz 2 çıktısı — dört sayı
+
+Kendi eğittiğimiz model (sıfırdan, 178 epok / ~90 dk, en iyi doğrulama
+mesafesi 0,4022 mm @ epok 150), **2024 test kümesi**: 10 denek, 240 tarama,
+tam 307.200 piksel ızgarası.
+
+| Model | Test kümesi | GP | GL | LP | LL | GP/LP |
+|---|---|---|---|---|---|---|
+| **Bizim (sıfırdan)** | 2024 test, 240 tarama | **86,90** | **83,65** | **0,3856** | **0,3850** | **225×** |
+| Ön eğitimli 2024 | 2025 dönen doğrulama, 6 tarama | 37,88 | 28,60 | 0,2513 | 0,2014 | 151× |
+
+Birim mm. `results/faz2_referans/olculer.json`,
+`results/faz2_referans_2025val/olculer.json`.
+
+**İki satır doğrudan karşılaştırılamaz** — farklı protokol, farklı tarama
+uzunluğu, farklı eğitim bütçesi. Yan yana durmalarının sebebi ölçek vermek:
+kare başına 0,39 mm hata, 550 karenin sonunda 87 mm'e çıkıyor.
+
+Eğitim epok 55'ten sonra 0,40–0,44 mm bandında düzleşti ve 27 epok boyunca
+iyileşmedi; koşum orada kesildi (`results/faz2_referans/egitim_egrisi.png`).
+Referansın 20.000 epokluk bütçesinin yanında bu **%0,9**'luk bir bütçe —
+model eksik eğitilmiş, sayı bu şartla okunmalı.
+
+Tarama tipine göre kırılım şaşırtıcı biçimde düz: sol/sağ kol 88,4 / 85,4 mm,
+paralel/dik prob 85,7 / 88,1 mm, C/L/S yörünge 86,0 / 88,4 / 86,4 mm.
+Kare sayısıyla GP bağdaşımı yalnızca **0,24**, LP ile GP bağdaşımı **0,55** —
+yani sürüklenme ne tarama uzunluğunun ne de kare başına hatanın basit bir
+sonucu. Faz 3 farkın nereden geldiğini ölçüyor.
+
 ### Bölme sabit
 
 `configs/bolme.json` — 30 eğitim / 10 doğrulama / 10 test denek, tohum

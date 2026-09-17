@@ -140,6 +140,7 @@
     <li><a href="#k16">Yer değiştirme alanı (DDF): dört ölçü ve 23 GB'ı eriten sadeleşme</a></li>
     <li><a href="#k17">Ön eğitimli ağırlık da sızıntı taşır</a></li>
     <li><a href="#k18">Hatayı teşhis etmek: sabit yanlılık mı, çarpımsal sapma mı</a></li>
+    <li><a href="#k19">Epok bütçesi: "20.000 epok" ne demek, bizimki neden 178</a></li>
     <li class="bek">Faz ilerledikçe eklenecek…</li>
   </ol>
 </div>
@@ -862,6 +863,41 @@ model.load_state_dict(torch.load(
     <div class="kutu"><span class="kt">Aradaki fark da bir ölçüm</span>
       Dürüst sürüm de kazandırıyorsa, yanlılık <b>modele</b> ait sabit bir kusurdur — bir kez ölçülüp hep uygulanabilir. Yalnızca kehanet kazandırıyorsa yanlılık <b>taramadan taramaya</b> değişiyordur; o zaman sabit bir düzeltme işe yaramaz, modelin kendisini değiştirmek gerekir.
       <p style="margin-top:7px">Kod bunu kazara karıştırmayı engelliyor: yanlılık kümesi test kümesiyle kesişirse <code>src/analiz.py</code> hata verip duruyor. Sessizce kehanete dönüşen bir "dürüst" ölçüm, hiç ölçüm yapmamaktan kötüdür.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 19 ============ -->
+<div class="konu" id="k19">
+  <div class="kbas"><span class="kno">19</span><h2>Epok bütçesi: "20.000 epok" ne demek, bizimki neden 178</h2><span class="kfaz">Faz 2</span></div>
+  <div class="kgov">
+    <p>Referans <code>NUM_EPOCHS = 20000</code> diyor. İlk bakışta korkutucu bir sayı. Ama bu problemde <b>bir epok çok küçük</b>, ve bunu anlamadan bütçe kıyaslaması yapılamaz.</p>
+
+    <div class="blok">
+      <h4>Bir epok kaç örnek</h4>
+      <p>Veri kümesinin bir elemanı <b>bir tarama</b>, ve <code>__getitem__</code> o taramadan <b>rastgele tek bir pencere</b> döndürüyor — 2 kare. Yani:</p>
+      <pre>1 epok = tarama sayısı kadar pencere
+         = 720 pencere  (30 denek × 24 tarama)</pre>
+      <p>Bir taramanın 550 karesi varsa, bir epokta o taramanın <b>550'de 1'i</b> görülüyor. "Epok" burada alışıldık anlamını taşımıyor; veri kümesinin üzerinden bir kez geçmek değil, her taramadan bir örnek çekmek demek.</p>
+    </div>
+
+    <div class="kutu"><span class="kt">Bütçe aslında şu</span>
+      <code>20.000 epok × 720 pencere = 14,4 milyon pencere.</code> Bizim koştuğumuz: <code>178 × 720 = 128 bin pencere</code> — referansın <b>%0,9</b>'u. Sayı bu şartla okunmalı; "referansı geçemedik" değil, <b>"referansın yüzde birlik bütçesiyle koştuk"</b>.</div>
+
+    <div class="blok">
+      <h4>Neden epok değil süre sabitlendi</h4>
+      <p>Epok sayısını sabitlemek donanım değişince anlamını yitirir; aynı 178 epok başka bir kartta 20 dakika da sürebilir 10 saat de. Deneyi <b>süreyle</b> sınırlamak (<code>--sure-siniri</code>) bütçeyi raporlanabilir ve tekrar edilebilir bir sayı yapıyor: "3,5 saat bütçe, bu donanımda 178 epok ettiği ölçüldü".</p>
+      <p>Sınır epok <b>sonunda</b> işliyor ve Ctrl+C ile aynı yoldan gidiyor: doğrulama koşuyor, en iyi model ve checkpoint yazılıyor, sonra çıkılıyor. Yarım epokta kesmek hem o epokun ölçümünü bozar hem de checkpoint'i tutarsız bırakır.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">Ölçülen: darboğaz yığın değil, işçi sayısı</span>
+      İlk koşumda <code>--isci 2</code> ile GPU kullanımı <b>%27</b>'de kaldı — kart boş bekliyordu, veri yetişmiyordu. <code>--isci 6</code> ile <b>%94</b>'e çıktı, epok süresi 1 dakikadan ~30 saniyeye indi.
+      <p style="margin-top:7px">4 GB kartta refleks olarak yığın boyutuyla oynanır. Ama yığın zaten VRAM tavanındaydı (3,9 / 4,0 GiB); kazanç <b>veri okumada</b>ydı. Hangi kaynağın tükendiğini <b>ölçmeden</b> ayar değiştirmek zaman kaybı.</div>
+
+    <div class="blok">
+      <h4>Nerede durduk</h4>
+      <p>Doğrulama mesafesi epok 55'ten sonra 0,40–0,44 mm bandında düzleşti; en iyi değer <b>0,4022 mm</b> (epok 150) ve sonraki 27 epokta iyileşme gelmedi. Öğrenme oranı sabit 1e-4, azaltma yok — sabit oranda platoda beklemenin getirisi düşüktür. Koşum orada kesildi.</p>
+      <p><b>Eğitim mesafesi doğrulamanınkinin üstünde kaldı</b> (0,53 / 0,42 mm). Bu ters görünür ama aşırı uydurma yok demek değil: eğitim mesafesi epok boyunca, karma hassasiyetle ve model <i>değişirken</i> ölçülüyor; doğrulama ise epok sonunda, <code>eval</code> kipinde ve ayrı deneklerde. İki sayı aynı şeyi ölçmüyor.</p>
+    </div>
   </div>
 </div>
 
