@@ -94,6 +94,7 @@ def olcum_dosyasi(yol: Path, satir: dict) -> None:
 
 
 def main() -> int:
+    global _DURDUR          # sure siniri ve Ctrl+C ayni bayragi kullaniyor
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--veri", type=Path, default=KOK / "data",
                     help="frames_transfs/ ve calib_matrix.csv iceren dizin")
@@ -117,6 +118,11 @@ def main() -> int:
     ap.add_argument("--isci", type=int, default=4, help="DataLoader num_workers")
     # --- kosum ---
     ap.add_argument("--epok", type=int, default=20000)
+    ap.add_argument("--sure-siniri", type=float, default=0.0, metavar="DAKIKA",
+                    help="bu sureden sonra epok bitince durdurup kaydet "
+                         "(0 = sinirsiz). Referansin 20000 epoklik butcesi "
+                         "bu donanimda gunler surer; deneyin butcesini epok "
+                         "degil SURE olarak sabitlemek tekrar edilebilir kilar")
     ap.add_argument("--dogrulama-sikligi", type=int, default=25)
     ap.add_argument("--kayit-sikligi", type=int, default=100)
     ap.add_argument("--devam", action="store_true", help="son checkpoint'ten devam")
@@ -236,6 +242,14 @@ def main() -> int:
             adim += 1
 
         e_kayip, e_mesafe = top_kayip / adim, top_mesafe / adim
+
+        # Sure sinirina epok SONUNDA bakiliyor ve Ctrl+C ile ayni yola
+        # giriliyor: boylece dogrulama kosuyor, en iyi model ve checkpoint
+        # yaziliyor, sonra cikiliyor. Yarim epokta kesmek hem olcumu bozar
+        # hem de checkpoint'i tutarsiz birakirdi.
+        if a.sure_siniri and (time.time() - bas_zaman) / 60 >= a.sure_siniri:
+            _DURDUR = True
+            print(f"\nsure siniri doldu ({a.sure_siniri:.0f} dk)", flush=True)
 
         dogrulama = {}
         if epok % a.dogrulama_sikligi == 0 or epok == a.epok - 1 or _DURDUR:

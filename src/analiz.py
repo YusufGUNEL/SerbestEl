@@ -97,6 +97,65 @@ def alti_vektordan(v: torch.Tensor) -> torch.Tensor:
     return T
 
 
+def alti_vektordan_yigin(V: torch.Tensor) -> torch.Tensor:
+    """(K,6) -> (K,4,4). alti_vektordan'in yiginli surumu."""
+    V = V.double()
+    T = torch.eye(4, dtype=torch.float64).repeat(V.shape[0], 1, 1)
+    T[:, 0:3, 0:3] = axis_angle_to_matrix(V[:, 3:6] / DER)
+    T[:, 0:3, 3] = V[:, 0:3]
+    return T
+
+
+def dogrusal_uydur(gercek: torch.Tensor, tahmin: torch.Tensor):
+    """Bilesen bilesen  tahmin ~ a . gercek + b  en kucuk kareler uydurmasi.
+
+    NEDEN BU OLCUM
+      Sabit yanlilik (b) hatanin yalnizca bir turu. Model hareketi tutarli
+      bicimde KUCUK ya da BUYUK tahmin ediyorsa hata hareketle ORANTILI olur;
+      bu carpimsal bir sapmadir ve ortalama cikarmakla gitmez. a katsayisi
+      bunu dogrudan olcer: a < 1 ise model hareketi kucumsuyor.
+
+      Ayrim onemli, cunku carpimsal sapma hareket duzgun oldugu surece
+      zincirde AYNI YONDE toplanir — yani yanlilik gibi davranir, ama
+      yanlilik olarak olculmez.
+
+    Dondurur: (a, b, r) her biri (6,). r bilesen basina bagdasim.
+    """
+    g = gercek.double()
+    t = tahmin.double()
+    gm, tm = g.mean(0), t.mean(0)
+    gc, tc = g - gm, t - tm
+    var = (gc * gc).sum(0)
+    a = torch.where(var > 1e-18, (gc * tc).sum(0) / var.clamp_min(1e-18),
+                    torch.ones_like(var))
+    b = tm - a * gm
+    r = torch.where(
+        var > 1e-18,
+        (gc * tc).sum(0) / (var.sqrt() * (tc * tc).sum(0).sqrt()).clamp_min(1e-18),
+        torch.zeros_like(var))
+    return a, b, r
+
+
+def olcegi_duzelt(tahmin_v: torch.Tensor, a: torch.Tensor, b: torch.Tensor,
+                  r: torch.Tensor, r_esik: float = 0.5) -> torch.Tensor:
+    """tahmin ~ a.gercek + b uydurmasini tersine cevirir: (tahmin - b) / a.
+
+    GUVENILIRLIK KAPISI — bu olmadan deney anlamsiz
+      a katsayisi ancak bilesen gercekten tahmin ediliyorsa anlamli. Bagdasim
+      sifira yakinsa (r ~ 0) model o bileseni hic bilmiyor demektir; a da
+      sifira yakin cikar ve a'ya bolmek gurultuyu 50 kat buyutur. Olculdu:
+      kapisiz surumde GP 38 mm'den 128 mm'e CIKIYOR.
+
+      Olmayan bir sinyal olceklenerek geri getirilemez. Bu yuzden yalnizca
+      r >= r_esik olan bilesenler duzeltilir, digerleri oldugu gibi kalir —
+      ve hangilerinin duzeltilmedigi raporlanir, cunku asil bulgu odur.
+    """
+    duzelt = r.abs() >= r_esik
+    a_g = torch.where(duzelt, a, torch.ones_like(a))
+    b_g = torch.where(duzelt, b, torch.zeros_like(b))
+    return (tahmin_v.double() - b_g) / a_g.clamp(min=1e-6)
+
+
 def kare_basi_mesafe(T_a: torch.Tensor, T_b: torch.Tensor,
                      mm: torch.Tensor) -> np.ndarray:
     """Iki donusum dizisinin ayni noktalara etkisi — KARE BASINA ortalama mm.
@@ -135,7 +194,8 @@ def sicrama_bul(egri: np.ndarray, esik: float = 6.0) -> list[int]:
 # ------------------------------------------------------------------- tarama
 
 def tarama_analiz(kareler, tforms, model, kalib, ciftler, aygit,
-                  yogunluk=(24, 32), kuresel_yanlilik=None) -> dict:
+                  yogunluk=(24, 32), kuresel_yanlilik=None,
+                  kuresel_olcek=None) -> dict:
     """Bir taramanin butun Faz 3 olcumleri."""
     gt_kuresel = kuresel_donusumler(tforms, kalib)
     gt_yerel = yerel_donusumler(tforms, kalib)
@@ -170,6 +230,23 @@ def tarama_analiz(kareler, tforms, model, kalib, ciftler, aygit,
     hiz = g[:, 0:3].norm(dim=1).numpy()                   # mm / kare
     donme = g[:, 3:6].norm(dim=1).numpy()                 # derece / kare
 
+    # --- carpimsal sapma: model hareketi kucumsuyor mu
+    t_v = alti_vektor(t_yerel.double())
+    a, b, r = dogrusal_uydur(g, t_v)
+    olcek_keh = kare_basi_mesafe(
+        gt_kuresel,
+        kuresel_biriktir(
+            alti_vektordan_yigin(olcegi_duzelt(t_v, a, b, r)).float()),
+        mm)
+    olcek_dur = None
+    if kuresel_olcek is not None:
+        ka, kb, kr = kuresel_olcek
+        olcek_dur = kare_basi_mesafe(
+            gt_kuresel,
+            kuresel_biriktir(
+                alti_vektordan_yigin(olcegi_duzelt(t_v, ka, kb, kr)).float()),
+            mm)
+
     def bagdasim(a, b):
         if a.std() < 1e-12 or b.std() < 1e-12:
             return float("nan")
@@ -192,6 +269,12 @@ def tarama_analiz(kareler, tforms, model, kalib, ciftler, aygit,
         "GP_son_kehanet": float(kehanet[-1]),
         "GP_durust": float(durust.mean()) if durust is not None else None,
         "GP_son_durust": float(durust[-1]) if durust is not None else None,
+        "olcek": a.numpy(),
+        "olcek_kesme": b.numpy(),
+        "olcek_bagdasim": r.numpy(),
+        "GP_olcek_kehanet": float(olcek_keh.mean()),
+        "GP_olcek_durust": (float(olcek_dur.mean())
+                            if olcek_dur is not None else None),
         "hiz_ort": float(hiz.mean()),
         "donme_ort": float(donme.mean()),
         "bagdasim_hiz": bagdasim(yerel_egri, hiz),
@@ -199,7 +282,10 @@ def tarama_analiz(kareler, tforms, model, kalib, ciftler, aygit,
         "duraklamada_hata": float(yerel_egri[yavas].mean()),
         "hareketde_hata": float(yerel_egri[hizli].mean()),
         "sicramalar": sicrama_bul(yerel_egri),
-        "_v": v.numpy(),                  # yanlilik havuzu icin; JSON'a girmez
+        # alt cizgili alanlar kume genelinde havuzlanmak icin; JSON'a girmez
+        "_v": v.numpy(),                  # kare basi hata 6-vektoru
+        "_g": g.numpy(),                  # gercek yerel hareket 6-vektoru
+        "_t": t_v.numpy(),                # tahmin edilen yerel hareket
     }
 
 
@@ -268,11 +354,21 @@ def cizimler(satirlar: list[dict], cikti: Path) -> None:
     f, e = plt.subplots(figsize=(5.4, 4.2))
     gp = np.array([s["GP"] for s in satirlar])
     keh = np.array([s["GP_kehanet"] for s in satirlar])
-    e.scatter(gp, keh, s=12, alpha=0.6, color="#c0392b", label="kehanet")
+    olc = np.array([s["GP_olcek_kehanet"] for s in satirlar])
+    e.scatter(gp, keh, s=12, alpha=0.6, color="#c0392b",
+              label="sabit yanlilik (kehanet)")
     if satirlar[0]["GP_durust"] is not None:
         dur = np.array([s["GP_durust"] for s in satirlar])
-        e.scatter(gp, dur, s=12, alpha=0.6, color="#2e7d32", label="durust")
-    lim = [float(min(gp.min(), keh.min())) * 0.9, float(gp.max()) * 1.1]
+        e.scatter(gp, dur, s=12, alpha=0.6, color="#e08a2e",
+                  label="sabit yanlilik (durust)")
+    e.scatter(gp, olc, s=12, alpha=0.6, color="#2e7d32", marker="^",
+              label="olcek de (kehanet)")
+    if satirlar[0]["GP_olcek_durust"] is not None:
+        okd = np.array([s["GP_olcek_durust"] for s in satirlar])
+        e.scatter(gp, okd, s=12, alpha=0.6, color="#1f6f8b", marker="^",
+                  label="olcek de (durust)")
+    lim = [float(min(gp.min(), keh.min(), olc.min())) * 0.9,
+           float(gp.max()) * 1.1]
     e.plot(lim, lim, "--", color="#555", lw=1, label="degisim yok")
     e.set_xscale("log")
     e.set_yscale("log")
@@ -309,7 +405,7 @@ def _taramalari_oku(veri: Path, denekler: list[str]):
 
 
 def _kos(taramalar, model, kalib, ciftler, aygit, yogunluk, kuresel_yanlilik,
-         sinir=None, baslik=""):
+         sinir=None, baslik="", kuresel_olcek=None):
     satirlar = []
     n = len(taramalar) if sinir is None else min(sinir, len(taramalar))
     for i, t in enumerate(taramalar[:n], 1):
@@ -318,7 +414,8 @@ def _kos(taramalar, model, kalib, ciftler, aygit, yogunluk, kuresel_yanlilik,
         with h5py.File(t.tform_yolu) as f:
             tforms = torch.tensor(np.asarray(f["tforms"]))
         s = tarama_analiz(kareler, tforms, model, kalib, ciftler, aygit,
-                          yogunluk=yogunluk, kuresel_yanlilik=kuresel_yanlilik)
+                          yogunluk=yogunluk, kuresel_yanlilik=kuresel_yanlilik,
+                          kuresel_olcek=kuresel_olcek)
         s.update(denek=t.denek, tarama=t.ad)
         satirlar.append(s)
         print(f"  [{baslik}{i}/{n}] {t.denek}/{t.ad:<14} {s['kare']:>5} kare  "
@@ -339,6 +436,10 @@ def main() -> int:
                     help="piksel izgarasi; tam 480x640 izgara gereksiz yavas")
     ap.add_argument("--yanlilik-kumesi", default="dogrulama",
                     help="durust yanliligin olculecegi kume ('yok' ile kapat)")
+    ap.add_argument("--yanlilik-denek", nargs="+", default=None,
+                    metavar="DENEK",
+                    help="yanliligi kume yerine bu deneklerden olc; test "
+                         "denekleriyle kesisirse hata verir")
     ap.add_argument("--yanlilik-tarama", type=int, default=24,
                     help="yanlilik olcumu icin kac tarama yeter")
     ap.add_argument("--sinir", type=int, default=None,
@@ -354,25 +455,51 @@ def main() -> int:
     print(f"aygit {aygit} | agirlik {a.agirlik.name} | "
           f"izgara {yogunluk[0]}x{yogunluk[1]}")
 
-    # --- 1) durust yanlilik: TEST DISI bir kumede olculur
+    # --- 1) durust yanlilik ve olcek: TEST DISI deneklerde olculur
     kuresel_yanlilik = None
-    if a.yanlilik_kumesi != "yok":
-        kaynak = _taramalari_oku(a.veri, bolme.denek_kumesi(a.yanlilik_kumesi))
-        print(f"\nyanlilik olcumu: {a.yanlilik_kumesi} kumesi, "
+    kuresel_olcek = None
+    test_denekler = set(bolme.denek_kumesi(a.kume))
+    if a.yanlilik_denek:
+        ortak = set(a.yanlilik_denek) & test_denekler
+        if ortak:
+            raise SystemExit(
+                f"yanlilik denekleri test kumesiyle kesisiyor: {sorted(ortak)}\n"
+                f"Test etiketinden olculen yanlilik 'durust' degil, kehanettir.")
+        yanlilik_denekler = list(a.yanlilik_denek)
+    elif a.yanlilik_kumesi != "yok":
+        yanlilik_denekler = bolme.denek_kumesi(a.yanlilik_kumesi)
+    else:
+        yanlilik_denekler = []
+    kaynak = _taramalari_oku(a.veri, yanlilik_denekler) if yanlilik_denekler else []
+    if yanlilik_denekler and not kaynak:
+        # Bolmede o kume bos olabilir (orn. yalnizca olcum icin hazirlanmis
+        # bolmeler). Sessizce test kumesine dusmek YASAK: yanlilik testte
+        # olculup teste uygulanirsa "durust" surum kehanete doner ve sayi
+        # yalan olur. Onun yerine ozellik kapatiliyor.
+        print(f"\nUYARI: yanlilik kaynagi bos ({yanlilik_denekler}) — durust "
+              f"yanlilik giderme ATLANDI. Yalnizca kehanet raporlanacak.")
+    elif kaynak:
+        print(f"\nyanlilik olcumu: {len(yanlilik_denekler)} denek, "
               f"{min(a.yanlilik_tarama, len(kaynak))} tarama")
         on = _kos(kaynak, model, kalib, ciftler, aygit, yogunluk, None,
                   sinir=a.yanlilik_tarama, baslik="y ")
-        havuz = np.concatenate([s["_v"] for s in on])
-        kuresel_yanlilik = torch.tensor(havuz.mean(axis=0))
-        print("  olculen kuresel yanlilik:")
-        for ad, d in zip(BILESEN, kuresel_yanlilik.tolist()):
-            print(f"    {ad:<16} {d:+.6f}")
+        kuresel_yanlilik = torch.tensor(
+            np.concatenate([s["_v"] for s in on]).mean(axis=0))
+        ka, kb, kr = dogrusal_uydur(
+            torch.tensor(np.concatenate([s["_g"] for s in on])),
+            torch.tensor(np.concatenate([s["_t"] for s in on])))
+        kuresel_olcek = (ka, kb, kr)
+        print("  olculen kuresel yanlilik ve olcek:")
+        for i, ad in enumerate(BILESEN):
+            print(f"    {ad:<16} yanlilik {kuresel_yanlilik[i]:+.6f}   "
+                  f"olcek {ka[i]:.4f}   kesme {kb[i]:+.6f}   r {kr[i]:+.3f}")
 
     # --- 2) test kumesi
     test = _taramalari_oku(a.veri, bolme.denek_kumesi(a.kume))
     print(f"\n{a.kume} kumesi: {len(test)} tarama")
     satirlar = _kos(test, model, kalib, ciftler, aygit, yogunluk,
-                    kuresel_yanlilik, sinir=a.sinir)
+                    kuresel_yanlilik, sinir=a.sinir,
+                    kuresel_olcek=kuresel_olcek)
 
     cizimler(satirlar, a.cikti)
 
@@ -401,14 +528,30 @@ def main() -> int:
     print("  |yanlilik| / gurultu (ortanca):")
     for i, ad in enumerate(BILESEN):
         print(f"    {ad:<16} {np.median(oran[:, i]):.3f}")
-    print(f"  yanlilik giderilince GP: {gp.mean():.3f} -> {keh.mean():.3f} mm "
-          f"(kehanet, %{100*(1-keh.mean()/max(gp.mean(), 1e-9)):.1f} dusus)")
+    olcekler = np.array([s["olcek"] for s in satirlar])
+    print("  hareket olcegi (tahmin ~ a . gercek):  a<1 = model hareketi kucumsuyor")
+    for i, ad in enumerate(BILESEN):
+        print(f"    {ad:<16} a = {np.median(olcekler[:, i]):.4f}   "
+              f"r = {np.median(np.array([s['olcek_bagdasim'] for s in satirlar])[:, i]):+.3f}")
+
+    ok = np.array([s["GP_olcek_kehanet"] for s in satirlar])
+    print(f"\n  GP {gp.mean():.3f} mm  ->")
+    print(f"    sabit yanlilik giderilince   {keh.mean():8.3f} mm  "
+          f"(kehanet, %{100*(1-keh.mean()/max(gp.mean(), 1e-9)):.1f})")
     dur_ort = None
     if satirlar[0]["GP_durust"] is not None:
         dur = np.array([s["GP_durust"] for s in satirlar])
         dur_ort = float(dur.mean())
-        print(f"  yanlilik giderilince GP: {gp.mean():.3f} -> {dur_ort:.3f} mm "
-              f"(durust, %{100*(1-dur_ort/max(gp.mean(), 1e-9)):.1f} dusus)")
+        print(f"    sabit yanlilik giderilince   {dur_ort:8.3f} mm  "
+              f"(durust,  %{100*(1-dur_ort/max(gp.mean(), 1e-9)):.1f})")
+    print(f"    olcek de duzeltilince        {ok.mean():8.3f} mm  "
+          f"(kehanet, %{100*(1-ok.mean()/max(gp.mean(), 1e-9)):.1f})")
+    ok_dur = None
+    if satirlar[0]["GP_olcek_durust"] is not None:
+        okd = np.array([s["GP_olcek_durust"] for s in satirlar])
+        ok_dur = float(okd.mean())
+        print(f"    olcek de duzeltilince        {ok_dur:8.3f} mm  "
+              f"(durust,  %{100*(1-ok_dur/max(gp.mean(), 1e-9)):.1f})")
 
     b_hiz = np.array([s["bagdasim_hiz"] for s in satirlar])
     b_don = np.array([s["bagdasim_donme"] for s in satirlar])
@@ -436,9 +579,13 @@ def main() -> int:
         "agirlik": str(a.agirlik), "kume": a.kume,
         "kuresel_yanlilik": (kuresel_yanlilik.tolist()
                              if kuresel_yanlilik is not None else None),
+        "kuresel_olcek": ([k.tolist() for k in kuresel_olcek]
+                          if kuresel_olcek is not None else None),
         "ozet": {
             "GP": float(gp.mean()), "LP": float(lp.mean()),
             "GP_kehanet": float(keh.mean()), "GP_durust": dur_ort,
+            "GP_olcek_kehanet": float(ok.mean()), "GP_olcek_durust": ok_dur,
+            "olcek_ortanca": np.median(olcekler, axis=0).tolist(),
             "buyume_dogrusal_artik": n_dogru,
             "buyume_karekok_artik": n_karekok,
             "yanlilik_orani_ortanca": np.median(oran, axis=0).tolist(),

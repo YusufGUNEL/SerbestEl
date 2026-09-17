@@ -117,8 +117,13 @@ def zip_ac(zip_yolu: Path, hedef: Path, isci: int = 0) -> bool:
 
 
 def kos(ad: str, komut: list[str]) -> bool:
-    print(f"\n--- {ad}")
-    s = subprocess.run(komut, cwd=KOK)
+    """Alt betigi kosar. Cikti ana surece AKARAK gelsin diye -u sart.
+
+    Aksi halde Python borulanmis ciktiyi blok blok tamponlar ve dakikalarca
+    hicbir sey gorunmez; kosum takildi mi ilerliyor mu ayirt edilemez.
+    """
+    print(f"\n--- {ad}", flush=True)
+    s = subprocess.run([komut[0], "-u", *komut[1:]], cwd=KOK)
     return s.returncode == 0
 
 

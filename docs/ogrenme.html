@@ -137,6 +137,8 @@
     <li><a href="#k13">HDF5: neden bu format, alternatifleri neden değil</a></li>
     <li><a href="#k14">Hacmi gerçek referansla kurmak — ve doğru kurduğunu kanıtlamak</a></li>
     <li><a href="#k15">Yanlılık mı gürültü mü: sürüklenmeyi asıl ne büyütüyor</a></li>
+    <li><a href="#k16">Yer değiştirme alanı (DDF): dört ölçü ve 23 GB'ı eriten sadeleşme</a></li>
+    <li><a href="#k17">Ön eğitimli ağırlık da sızıntı taşır</a></li>
     <li class="bek">Faz ilerledikçe eklenecek…</li>
   </ol>
 </div>
@@ -704,6 +706,92 @@ landmarks (100, 3)          int64     <i># [kare no, x, y]</i></pre>
 
     <div class="kutu"><span class="kt">Bu proje için ne anlama geliyor</span>
       Faz 2'de referans sistemin dört sayısı çıktığında, bakılacak ilk şey yalnızca hatanın büyüklüğü değil <b>yönü</b> olacak: tahmin edilen yerel dönüşümlerin hatası sıfır ortalamalı mı, yoksa tutarlı bir sapma mı var? Yanlılık varsa, onu ölçüp düzeltmek projenin bilimsel iddiası olabilir — çünkü tablo gösteriyor ki kazancı en büyük olan yer orası.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 16 ============ -->
+<div class="konu" id="k16">
+  <div class="kbas"><span class="kno">16</span><h2>Yer değiştirme alanı (DDF): dört ölçü ve 23 GB'ı eriten sadeleşme</h2><span class="kfaz">Faz 2</span></div>
+  <div class="kgov">
+    <p>Yarışma "dönüşüm matrisin ne kadar doğru" diye sormuyor. <b>Pikselleri nereye koydun</b> diye soruyor. Ölçünün birimi bu yüzden milimetre, derece değil.</p>
+
+    <div class="blok">
+      <h4>Tanım</h4>
+      <p>DDF (<i>dense displacement field</i>, yoğun yer değiştirme alanı), bir karedeki <b>her pikselin</b> nereye gittiğini söyleyen vektör alanı. Piksel <code>p</code> için:</p>
+      <pre>DDF(p) = T · p − p</pre>
+      <p>Yani pikselin taşındıktan sonraki mm konumu, eksi kendi karesindeki mm konumu. Bir kare için 480×640 = <b>307.200</b> vektör, her biri 3 bileşenli.</p>
+    </div>
+
+    <div class="blok">
+      <h4>Neden dört tane</h4>
+      <p>İki eksen çarpılıyor: <b>hangi noktalar</b> (tüm pikseller / işaret noktaları) ve <b>neye göre</b> (ilk kare / önceki kare).</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Ölçü</th><th>Noktalar</th><th>Referans</th><th>Neyi yakalar</th></tr></thead>
+      <tbody>
+        <tr><td><b class="sec">GP</b></td><td>307.200 piksel</td><td>ilk kare</td><td><b>Sürüklenme.</b> Hacmin genel şekli doğru mu</td></tr>
+        <tr><td><b>GL</b></td><td>işaret noktaları</td><td>ilk kare</td><td>Klinik olarak önemli noktalar doğru yerde mi</td></tr>
+        <tr><td><b>LP</b></td><td>307.200 piksel</td><td>önceki kare</td><td>Adım adım hareket — modelin ham tahmin kalitesi</td></tr>
+        <tr><td><b>LL</b></td><td>işaret noktaları</td><td>önceki kare</td><td>Yerel klinik doğruluk</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="kutu"><span class="kt">Dördü birlikte okunur</span>
+      <b>LP küçük + GP büyük</b> ⇒ model kare kare iyi, ama hata birikiyor. Sorun <b>zincirleme</b>.<br>
+      <b>LP de büyük</b> ⇒ sorun temel tahmin kalitesi, zincirleme değil.<br>
+      Tek sayı vermek bu ayrımı yok eder — ve bu ayrım Faz 4'te hangi yola gidileceğini belirliyor.</div>
+
+    <div class="blok">
+      <h4>23 GB'lık tuzak ve onu eriten iki satırlık cebir</h4>
+      <p>Referans ölçüm kodu dört DDF'yi bellekte kuruyor. Bir tarama için <code>(1569, 3, 307200)</code> float32 = <b>5,8 GB</b>; gerçek + tahmin, yerel + küresel = <b>~23 GB</b>. Referans README'nin "≥32 GB RAM" uyarısı tam olarak bundan.</p>
+      <p>Oysa <b>ölçülen şey iki DDF'nin farkı</b>:</p>
+      <pre>DDF_gercek − DDF_tahmin
+  = (T_gercek·p − p) − (T_tahmin·p − p)
+  =  T_gercek·p − T_tahmin·p</pre>
+      <p>Noktanın kendi konumu <code>p</code> <b>sadeleşiyor</b>. Alanları hiç kurmaya gerek yok; iki dönüşümün aynı noktalara etkisini kare bloklarıyla karşılaştırmak yeter. Ölçülen tepe bellek: <b>11,6 GB yerine ~88 MB.</b> Sayılar referansla aynı çıkıyor (bağıl fark 4·10⁻⁷, <code>tests/test_olcum.py</code> T2).</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">Sadeleşmeye güvenmeden önce kanıtla</span>
+      "Cebirsel olarak aynı" demek yetmez — kodda indeks kayması, tip dönüşümü, referansın kendine özgü bir davranışı olabilir. Bu yüzden test referansın <b>kendi çıktısına</b> karşı koşuyor. Bir hızlandırma ancak referansla aynı sayıyı ürettiği <b>ölçüldükten</b> sonra hızlandırmadır; ölçülmeden önce sadece farklı bir koddur.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 17 ============ -->
+<div class="konu" id="k17">
+  <div class="kbas"><span class="kno">17</span><h2>Ön eğitimli ağırlık da sızıntı taşır</h2><span class="kfaz">Faz 2</span></div>
+  <div class="kgov">
+    <p>Konu 7 veri sızıntısını anlatıyordu: aynı deneğin bir taraması eğitimde, diğeri testte olmamalı. Bu konu aynı kuralın <b>gözden kaçan</b> hâli — sızıntı veri klasöründen değil, <b>ağırlık dosyasından</b> geliyor.</p>
+
+    <div class="blok">
+      <h4>Durum</h4>
+      <p>Referans <code>train.py</code> eğitime sıfırdan başlamıyor:</p>
+      <pre>model = efficientnet_b1(weights=None)          <i># rastgele baslangic</i>
+model.load_state_dict(torch.load(
+    'TUS-REC2024_model/model_weights'))       <i># ... ama hemen uzerine yaziliyor</i></pre>
+      <p>Bu ağırlıklar <b>TUS-REC2024 eğitim kümesinde</b> eğitilmiş. Bizim elimizdeki veri de tam olarak o küme: 50 denek, 1200 tarama.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">Sessiz hata</span>
+      Bölmeyi denek bazında yapmak <b>yetmiyor</b>. Test deneklerimizi eğitimden titizlikle ayırsak bile, yüklediğimiz ağırlık o denekleri <b>zaten görmüş</b> oluyor. Skor şişer, hiçbir hata mesajı çıkmaz, tablo makul görünür. Sızıntının en tehlikeli türü budur: sonucu bozar ama kendini belli etmez.</div>
+
+    <div class="blok">
+      <h4>Karar</h4>
+      <p>Faz 2'de TUS-REC2024 üzerinde eğitim <b>sıfırdan</b> yapılıyor (<code>--on-egitimli yok</code>). Bedeli var: referansın 20.000 epoklık bütçesine sahip değiliz, dolayısıyla model eksik eğitilmiş oluyor. Ama <b>ölçtüğümüz sayı gerçek</b>.</p>
+      <p>Ön eğitimli ağırlık yine de ölçülüyor — iki ayrı rolde, ikisi de açıkça etiketlenerek:</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Model</th><th>Test kümesi</th><th>Temiz mi</th><th>Ne işe yarıyor</th></tr></thead>
+      <tbody>
+        <tr><td>Ön eğitimli 2024</td><td>2024 test denekleri</td><td><b class="ele">HAYIR — sızıntılı</b></td><td>Yalnızca üst sınır: "tam eğitilmiş ama kopya çekmiş" model ne veriyor</td></tr>
+        <tr><td>Ön eğitimli 2024</td><td>2025 dönen doğrulama (050–052)</td><td><b class="sec">EVET</b></td><td>Gerçek kıyas noktası — bu denekler 2024 eğitiminde yok</td></tr>
+        <tr><td>Bizim (sıfırdan)</td><td>2024 test denekleri</td><td><b class="sec">EVET</b></td><td>Faz 2'nin asıl sayısı</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="kutu"><span class="kt">Neden 050–052 temiz</span>
+      Yarışma açıklaması şunu söylüyor: <i>"The patient IDs are consistent across datasets of TUS-REC2024 and TUS-REC2025."</i> Denek numaraları iki veri kümesinde <b>aynı kişiyi</b> gösteriyor. TUS-REC2024 eğitim kümesi 000–049, elimizdeki 2025 doğrulama kümesi 050–052 — kesişim <b>boş</b>. Bunu varsaymak yerine kontrol etmek gerekiyordu; kesişseydi bütün karşılaştırma çöpe giderdi.</div>
   </div>
 </div>
 
