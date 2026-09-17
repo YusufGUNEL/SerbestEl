@@ -399,6 +399,43 @@ def cizimler(satirlar: list[dict], cikti: Path) -> None:
 
 # ---------------------------------------------------------------------- ana
 
+def en_kotu_gorselleri(sirali, veri: Path, cikti: Path, model, kalib, ciftler,
+                       aygit, n: int) -> int:
+    """Yol haritasi Faz 3 adim 4: en kotu taramalari GOZLE izlenebilir yap.
+
+    Sayi nerede kotu oldugunu soyler, NEDEN kotu oldugunu soylemez. Gercek
+    ve tahmin edilen prob yorungesi ust uste cizilince suruklenmenin hangi
+    eksende ve taramanin neresinde basladigi dogrudan gorunuyor.
+    """
+    from src.gorsel import hata_grafigi, prob_konumlari, yorunge_cizimi
+
+    dizin = cikti / "en_kotu"
+    dizin.mkdir(parents=True, exist_ok=True)
+    _, tum = taramalari_bul(veri)
+    dizinlenmis = {(t.denek, t.ad): t for t in tum}
+
+    for s in sirali[:n]:
+        t = dizinlenmis[(s["denek"], s["tarama"])]
+        with h5py.File(t.kare_yolu) as f:
+            kareler = np.asarray(f["frames"])
+        with h5py.File(t.tform_yolu) as f:
+            tforms = torch.tensor(np.asarray(f["tforms"]))
+        gt_kuresel = kuresel_donusumler(tforms, kalib)
+        t_kuresel = kuresel_biriktir(
+            yerel_tahmin(model, kareler, kalib, ciftler, aygit))
+        ad = f"{s['denek']}_{s['tarama']}"
+        yorunge_cizimi(prob_konumlari(gt_kuresel, kalib),
+                       dizin / f"{ad}_yorunge.png",
+                       tahmin=prob_konumlari(t_kuresel, kalib),
+                       baslik=f"{ad}  GP {s['GP']:.1f} mm")
+        hata_grafigi({"kuresel (ilk kareye gore)": s["kuresel_egri"],
+                      "yerel (onceki kareye gore)": s["yerel_egri"]},
+                     dizin / f"{ad}_hata.png",
+                     baslik=f"{ad}  GP {s['GP']:.1f} mm", log=True)
+        print(f"    {ad}: yorunge + hata grafigi", flush=True)
+    return min(n, len(sirali))
+
+
 def _taramalari_oku(veri: Path, denekler: list[str]):
     _, tum = taramalari_bul(veri)
     return [t for t in tum if t.denek in set(denekler)]
@@ -444,6 +481,9 @@ def main() -> int:
                     help="yanlilik olcumu icin kac tarama yeter")
     ap.add_argument("--sinir", type=int, default=None,
                     help="yalnizca ilk N test taramasi (hizli deneme)")
+    ap.add_argument("--gorsel", type=int, default=10, metavar="N",
+                    help="en kotu N tarama icin yorunge ve hata grafigi "
+                         "(0 = uretme)")
     a = ap.parse_args()
 
     a.cikti.mkdir(parents=True, exist_ok=True)
@@ -569,6 +609,11 @@ def main() -> int:
               f"LP {s['LP']:.4f}  hiz {s['hiz_ort']:.3f} mm/kare  "
               f"donme {s['donme_ort']:.3f} der/kare  "
               f"sicrama {len(s['sicramalar'])}")
+
+    if a.gorsel:
+        print(f"\n  en kotu {a.gorsel} tarama gorsellestiriliyor:")
+        en_kotu_gorselleri(sirali, a.veri, a.cikti, model, kalib, ciftler,
+                           aygit, a.gorsel)
 
     # --- 4) dosyaya yaz
     def temiz(s):
