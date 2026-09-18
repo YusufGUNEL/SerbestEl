@@ -42,6 +42,14 @@ class Bolme:
     test: list[str]
     tohum: int
     kaynak: str
+    aciklama: str = ""
+    # Kumelerin ortusmesine izin veren TEK kapi. Varsayilani False, ve oyle
+    # kalmali: bir bolme dosyasina yanlislikla ayni denek iki kere girdiginde
+    # kosum durmali. Yalnizca genelleme OLCMEYEN tani deneyleri bunu acar —
+    # ornegin "ag bir seyi hic olmazsa ezberleyebiliyor mu" sorusunda egitim
+    # ve dogrulama bilerek ayni denektir. Bayrak dosyanin icinde durdugu icin
+    # o bolmeyi kullanan her kosumda gorunur; sessiz bir istisna degildir.
+    kasitli_ortusme: bool = False
 
     def denek_kumesi(self, ad: str) -> list[str]:
         return {"egitim": self.egitim, "dogrulama": self.dogrulama,
@@ -52,6 +60,11 @@ class Bolme:
         kumeler = {"egitim": set(self.egitim), "dogrulama": set(self.dogrulama),
                    "test": set(self.test)}
         adlar = list(kumeler)
+        if self.kasitli_ortusme:
+            print("UYARI: bu bolmede kumeler BILEREK ortusuyor — sizinti "
+                  "kontrolu kapali. Uretilen sayilar genelleme olcmez.\n"
+                  f"       {self.aciklama or '(aciklama yok)'}")
+            return
         for i in range(len(adlar)):
             for j in range(i + 1, len(adlar)):
                 ortak = kumeler[adlar[i]] & kumeler[adlar[j]]

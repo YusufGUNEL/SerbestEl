@@ -1,0 +1,15 @@
+{
+  "egitim": [
+    "000"
+  ],
+  "dogrulama": [
+    "000"
+  ],
+  "test": [
+    "001"
+  ],
+  "tohum": 20260915,
+  "kaynak": "D:/SerbestEl-veri/tusrec2024/acilmis",
+  "aciklama": "EZBER TANISI — egitim ve dogrulama BILEREK ayni denek. Genelleme olcmez. Soru: ag 24 taramalik bir kumeyi ezberleyip hareketi gercekten tahmin edebiliyor mu? Hayirsa sorun veri olceginde degil, daha temelde. Test alani yalnizca yukleyici sart kostugu icin dolu, hicbir zaman olculmuyor.",
+  "kasitli_ortusme": true
+}

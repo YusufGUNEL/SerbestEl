@@ -64,6 +64,12 @@ from src.geometri import (                               # noqa: E402
     yerel_donusumler,
 )
 from src.olcum import kuresel_biriktir, model_yukle, yerel_tahmin  # noqa: E402
+
+# Kosumun mimarisi. Faz 3'te tek bir mimari vardi ve sabit yazilmisti; Faz 4
+# temsil ve baglam uzunlugunu degistirdigi icin analiz de ayni ayarlarla
+# kosmak zorunda. CLI dolduruyor, yerel_tahmin cagrilari buradan okuyor —
+# yanlis ayarla analiz sessizce anlamsiz sayilar uretirdi.
+MIMARI: dict = {"num_samples": 2, "donme_temsili": "euler"}
 from src.veri import taramalari_bul                      # noqa: E402
 
 DER = 180.0 / math.pi
@@ -212,7 +218,7 @@ def tarama_analiz(kareler, tforms, model, kalib, ciftler, aygit,
     """Bir taramanin butun Faz 3 olcumleri."""
     gt_kuresel = kuresel_donusumler(tforms, kalib)
     gt_yerel = yerel_donusumler(tforms, kalib)
-    t_yerel = yerel_tahmin(model, kareler, kalib, ciftler, aygit)
+    t_yerel = yerel_tahmin(model, kareler, kalib, ciftler, aygit, **MIMARI)
     t_kuresel = kuresel_biriktir(t_yerel)
 
     mm = kalib.olcek @ piksel_noktalari(480, 640, yogunluk=yogunluk)
@@ -435,7 +441,7 @@ def en_kotu_gorselleri(sirali, veri: Path, cikti: Path, model, kalib, ciftler,
             tforms = torch.tensor(np.asarray(f["tforms"]))
         gt_kuresel = kuresel_donusumler(tforms, kalib)
         t_kuresel = kuresel_biriktir(
-            yerel_tahmin(model, kareler, kalib, ciftler, aygit))
+            yerel_tahmin(model, kareler, kalib, ciftler, aygit, **MIMARI))
         ad = f"{s['denek']}_{s['tarama']}"
         yorunge_cizimi(prob_konumlari(gt_kuresel, kalib),
                        dizin / f"{ad}_yorunge.png",
@@ -494,6 +500,10 @@ def main() -> int:
                     help="yanlilik olcumu icin kac tarama yeter")
     ap.add_argument("--sinir", type=int, default=None,
                     help="yalnizca ilk N test taramasi (hizli deneme)")
+    ap.add_argument("--num-samples", type=int, default=2)
+    ap.add_argument("--num-pred", type=int, default=1)
+    ap.add_argument("--donme-temsili", default="euler",
+                    choices=["euler", "6b", "kuaterniyon", "matris"])
     ap.add_argument("--gorsel", type=int, default=10, metavar="N",
                     help="en kotu N tarama icin yorunge ve hata grafigi "
                          "(0 = uretme)")
@@ -502,7 +512,10 @@ def main() -> int:
     a.cikti.mkdir(parents=True, exist_ok=True)
     aygit = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     kalib = Kalibrasyon.csvden(a.veri / "calib_matrix.csv")
-    model, ciftler, _ = model_yukle(a.agirlik, aygit)
+    MIMARI.update(num_samples=a.num_samples, donme_temsili=a.donme_temsili)
+    model, ciftler, _ = model_yukle(a.agirlik, aygit, num_samples=a.num_samples,
+                                    num_pred=a.num_pred,
+                                    donme_temsili=a.donme_temsili)
     bolme = bolme_yukle(a.bolme)
     yogunluk = tuple(a.yogunluk)
     print(f"aygit {aygit} | agirlik {a.agirlik.name} | "
@@ -644,6 +657,12 @@ def main() -> int:
             "GP_kehanet": float(keh.mean()), "GP_durust": dur_ort,
             "GP_olcek_kehanet": float(ok.mean()), "GP_olcek_durust": ok_dur,
             "olcek_ortanca": np.median(olcekler, axis=0).tolist(),
+            # Faz 3'un ANA TESHISI bu satirda: |r| sifira yakinsa model
+            # goruntuye bakmiyor, veri kumesinin ortalamasini soyluyor.
+            # Faz 4'te her kosumun ilk kontrolu budur — cokmus bir modelde
+            # hicbir fikrin katkisi anlamli olculemez.
+            "olcek_bagdasim_ortanca": np.median(
+                np.array([s["olcek_bagdasim"] for s in satirlar]), axis=0).tolist(),
             "buyume_dogrusal_artik": n_dogru,
             "buyume_karekok_artik": n_karekok,
             "yanlilik_orani_ortanca": np.median(oran, axis=0).tolist(),

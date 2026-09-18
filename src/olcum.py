@@ -57,19 +57,18 @@ from src.geometri import (  # noqa: E402
     piksel_noktalari,
     yerel_donusumler,
 )
-from utils.funs import pair_samples, type_dim  # noqa: E402
-from utils.network import build_model  # noqa: E402
+from src.omurga import kur as omurga_kur  # noqa: E402
+from src.temsil import cikti_boyutu, donusume_matrise  # noqa: E402
+from utils.funs import pair_samples  # noqa: E402
 from utils.plot_functions import reference_image_points  # noqa: E402
-from utils.transform import Transforms  # noqa: E402
 
 
 def model_yukle(agirlik: Path, aygit, num_samples=2, num_pred=1,
-                pred_type="parameter", model_name="efficientnet_b1"):
+                donme_temsili="euler", model_name="efficientnet_b1"):
     ciftler = pair_samples(num_samples, num_pred, 0)
-    nokta = reference_image_points([480, 640], 2)
-    pred_dim = type_dim(pred_type, nokta.shape[1], ciftler.shape[0])
-    model = build_model({"model_name": model_name}, in_frames=num_samples,
-                        pred_dim=pred_dim).to(aygit)
+    pred_dim = cikti_boyutu(donme_temsili, ciftler.shape[0])
+    # ImageNet agirligi burada gereksiz: hemen uzerine egitilmis agirlik biniyor
+    model = omurga_kur(model_name, in_frames=num_samples, pred_dim=pred_dim).to(aygit)
     model.load_state_dict(torch.load(agirlik, map_location=aygit))
     model.eval()
     return model, ciftler, pred_dim
@@ -77,17 +76,19 @@ def model_yukle(agirlik: Path, aygit, num_samples=2, num_pred=1,
 
 @torch.no_grad()
 def yerel_tahmin(model, kareler: np.ndarray, kalib: Kalibrasyon, ciftler,
-                 aygit, num_samples=2, pred_type="parameter",
+                 aygit, num_samples=2, donme_temsili="euler",
                  yigin=16, amp=True) -> torch.Tensor:
     """Modelden kare basina YEREL donusum. Cikti (N-1, 4, 4) cpu."""
     n = kareler.shape[0]
-    donusum = Transforms(
-        pred_type=pred_type, num_pairs=ciftler.shape[0],
+    kalib_kw = dict(
         image_points=reference_image_points([480, 640], 2).to(aygit),
         tform_image_to_tool=kalib.tam.to(aygit),
         tform_image_mm_to_tool=kalib.rijit.to(aygit),
         tform_image_pixel_to_mm=kalib.olcek.to(aygit),
     )
+
+    def donusum(cikti):
+        return donusume_matrise(donme_temsili, cikti, ciftler.shape[0], **kalib_kw)
     aralik = int(ciftler[0][1] - ciftler[0][0])
 
     # referansin pencere baslangiclari: 0, aralik, 2*aralik, ... son pencereye kadar
@@ -198,13 +199,24 @@ def main() -> int:
     ap.add_argument("--cikti", type=Path, default=None)
     ap.add_argument("--seyrek", type=int, default=None,
                     help="piksel izgarasini seyrelt (hizli deneme; None = 307200)")
+    # --- kosumun mimarisi: egitimdeki degerlerle AYNI verilmeli ---
+    ap.add_argument("--num-samples", type=int, default=2)
+    ap.add_argument("--num-pred", type=int, default=1)
+    ap.add_argument("--donme-temsili", default="euler",
+                    choices=["euler", "6b", "kuaterniyon", "matris"])
+    ap.add_argument("--tarama-basina", type=int, default=None, metavar="N",
+                    help="denek basina ilk N tarama (ada gore sirali, rastgelelik "
+                         "yok). Faz 4 deneylerini siralarken kullaniliyor: 240 "
+                         "taramanin tamami deney basina ~26 dakika suruyor")
     a = ap.parse_args()
 
     import h5py
 
     aygit = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     kalib = Kalibrasyon.csvden(a.veri / "calib_matrix.csv")
-    model, ciftler, _ = model_yukle(a.agirlik, aygit)
+    model, ciftler, _ = model_yukle(a.agirlik, aygit, num_samples=a.num_samples,
+                                    num_pred=a.num_pred,
+                                    donme_temsili=a.donme_temsili)
     bolme = bolme_yukle(a.bolme)
     denekler = bolme.denek_kumesi(a.kume)
     print(f"{a.kume} kumesi: {len(denekler)} denek  |  agirlik: {a.agirlik.name}")
@@ -216,6 +228,11 @@ def main() -> int:
     _, tum_taramalar = taramalari_bul(a.veri)
     istenen = set(denekler)
     secili = [t for t in tum_taramalar if t.denek in istenen]
+    if a.tarama_basina:
+        gruplu: dict[str, list] = {}
+        for t in sorted(secili, key=lambda t: (t.denek, t.ad)):
+            gruplu.setdefault(t.denek, []).append(t)
+        secili = [t for g in gruplu.values() for t in g[:a.tarama_basina]]
     print(f"  {len(secili)} tarama olculecek")
 
     satirlar = []
@@ -233,7 +250,8 @@ def main() -> int:
                 isaretler = torch.from_numpy(np.asarray(f[t.ad]))
 
         s = tarama_olc(kareler, tforms, isaretler, model, kalib, ciftler,
-                       aygit, nokta_yogunlugu=(a.seyrek, a.seyrek) if a.seyrek else None)
+                       aygit, nokta_yogunlugu=(a.seyrek, a.seyrek) if a.seyrek else None,
+                       num_samples=a.num_samples, donme_temsili=a.donme_temsili)
         s.update(denek=t.denek, tarama=t.ad)
         satirlar.append(s)
         print(f"  {t.denek}/{t.ad:<14} {s['kare']:>5} kare   "
@@ -258,6 +276,9 @@ def main() -> int:
         a.cikti.parent.mkdir(parents=True, exist_ok=True)
         a.cikti.write_text(json.dumps(
             {"kume": a.kume, "agirlik": str(a.agirlik),
+             "num_samples": a.num_samples, "num_pred": a.num_pred,
+             "donme_temsili": a.donme_temsili,
+             "tarama_basina": a.tarama_basina,
              "taramalar": satirlar, "ozet": ozet}, indent=2), encoding="utf-8")
         print(f"\nyazildi: {a.cikti}")
     return 0

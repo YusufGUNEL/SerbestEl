@@ -49,12 +49,18 @@ for p in (str(KOK), str(REFERANS)):
         sys.path.insert(0, p)
 
 from src.bolme import yukle as bolme_yukle  # noqa: E402
+from src.omurga import kur as omurga_kur  # noqa: E402
+from src.temsil import (  # noqa: E402
+    TahminDonusturucu,
+    cikti_boyutu,
+    donusume_matrise,
+    son_katmani_birime_ayarla,
+)
 from src.veri import kume_kur, taramalari_bul  # noqa: E402
-from utils.funs import pair_samples, type_dim  # noqa: E402
+from utils.funs import pair_samples  # noqa: E402
 from utils.loss import PointDistance  # noqa: E402
-from utils.network import build_model  # noqa: E402
 from utils.plot_functions import read_calib_matrices, reference_image_points  # noqa: E402
-from utils.transform import LabelTransform, PointTransform, PredictionTransform  # noqa: E402
+from utils.transform import LabelTransform, PointTransform  # noqa: E402
 
 _DURDUR = False
 
@@ -93,6 +99,38 @@ def olcum_dosyasi(yol: Path, satir: dict) -> None:
         y.writerow(satir)
 
 
+def tutarlilik_kaybi(model, kareler, cikti, a, num_pairs, kalib, nokta_mm):
+    """Ileri ve geri tahminin birbirini goturmesi kisiti (yol haritasi D hatti).
+
+    Kare sirasi ters cevrilip ag ikinci kez kosturulur. Ilk gecis
+    T(1->0), ikincisi T(0->1) tahmin eder. Ikisi gercekse bilesimleri
+    BIRIM matris olmali: T(1->0) . T(0->1) = I.
+
+    Kisit ek etiket istemiyor — gercek donusumler hic kullanilmiyor, yalnizca
+    modelin kendi iki tahmini karsilastiriliyor. Bu yuzden dogrudan hata
+    BIRIKMESINI hedefler: birikme, ard arda carpilan donusumlerin birbiriyle
+    tutarsizligindan doguyor.
+
+    Hata yine MM cinsinden olculuyor: bilesim referans kose noktalarina
+    uygulanip noktalarin ne kadar kaydigina bakiliyor. Boylece kisit ana
+    kayipla AYNI birimde olur ve agirlik katsayisi yorumlanabilir kalir
+    (1.0 = bir milimetrelik tutarsizlik, bir milimetrelik konum hatasi kadar
+    cezalandirilir).
+
+    BEDELI DURUSTCE: ikinci ileri gecis adim suresini yaklasik iki katina
+    cikarir. Sabit sure butcesinde bu, gorulen pencere sayisinin yariya
+    inmesi demektir; deneyin kaydinda bu bedel de yaziyor.
+    """
+    ters = torch.flip(kareler, dims=[1])
+    cikti_ters = model(ters / 255)
+    T_ileri = donusume_matrise(a.donme_temsili, cikti, num_pairs, **kalib)
+    T_geri = donusume_matrise(a.donme_temsili, cikti_ters, num_pairs, **kalib)
+    bilesim = torch.matmul(T_ileri.float(), T_geri.float())
+    kaymis = torch.matmul(bilesim, nokta_mm)[:, :, 0:3, :]
+    beklenen = nokta_mm[0:3, :].expand_as(kaymis)
+    return torch.nn.functional.mse_loss(kaymis, beklenen)
+
+
 def main() -> int:
     global _DURDUR          # sure siniri ve Ctrl+C ayni bayragi kullaniyor
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
@@ -104,8 +142,18 @@ def main() -> int:
     ap.add_argument("--num-samples", type=int, default=2)
     ap.add_argument("--sample-range", type=int, default=2)
     ap.add_argument("--num-pred", type=int, default=1)
-    ap.add_argument("--pred-type", default="parameter")
-    ap.add_argument("--label-type", default="point")
+    # --- Faz 4 degiskenleri: varsayilanlari Faz 2 kosumuyla BIREBIR ayni ---
+    ap.add_argument("--donme-temsili", default="euler",
+                    choices=["euler", "6b", "kuaterniyon", "matris"],
+                    help="agin donmeyi hangi sayilarla tahmin edecegi (yol haritasi B hatti)")
+    ap.add_argument("--kayip-uzayi", default="nokta", choices=["nokta", "parametre"],
+                    help="kayip mm cinsinden nokta mesafesi mi, ham parametre mi (C hatti)")
+    ap.add_argument("--lr-plan", default="sabit", choices=["sabit", "plato"],
+                    help="plato: dogrulama duzelmeyince lr yariya iner")
+    ap.add_argument("--omurga-onegitimli", action="store_true",
+                    help="omurgayi ImageNet agirligiyla baslat (sizinti tasimaz)")
+    ap.add_argument("--tutarlilik", type=float, default=0.0, metavar="AGIRLIK",
+                    help="ileri/geri tutarlilik kisiti agirligi, 0 = kapali (D hatti)")
     # dest 'model_name' olmali: referansin build_model'i bu adi ariyor
     ap.add_argument("--model", dest="model_name", default="efficientnet_b1")
     ap.add_argument("--lr", type=float, default=1e-4)
@@ -125,6 +173,10 @@ def main() -> int:
                          "degil SURE olarak sabitlemek tekrar edilebilir kilar")
     ap.add_argument("--dogrulama-sikligi", type=int, default=25)
     ap.add_argument("--kayit-sikligi", type=int, default=100)
+    ap.add_argument("--ara-kayit", type=int, default=0, metavar="EPOK",
+                    help="her EPOK'ta agirliklari AYRI bir dosyaya yaz "
+                         "(0 = kapali). Uzun kosumda bagdasimin egitim "
+                         "olcegiyle nasil degistigini olcmek icin")
     ap.add_argument("--devam", action="store_true", help="son checkpoint'ten devam")
     ap.add_argument("--on-egitimli", type=Path,
                     default=REFERANS / "TUS-REC2024_model" / "model_weights",
@@ -132,6 +184,7 @@ def main() -> int:
     ap.add_argument("--tohum", type=int, default=20260915)
     a = ap.parse_args()
 
+    a.label_type = {"nokta": "point", "parametre": "parameter"}[a.kayip_uzayi]
     torch.manual_seed(a.tohum)
     np.random.seed(a.tohum)
     a.kayit.mkdir(parents=True, exist_ok=True)
@@ -171,18 +224,31 @@ def main() -> int:
                          read_calib_matrices(str(a.veri / "calib_matrix.csv")))
     ornek_kare = dset_egitim[0][0]
     nokta = reference_image_points(ornek_kare.shape[1:], 2).to(aygit)
-    pred_dim = type_dim(a.pred_type, nokta.shape[1], ciftler.shape[0])
+    pred_dim = cikti_boyutu(a.donme_temsili, ciftler.shape[0])
     kalib = dict(image_points=nokta, tform_image_to_tool=tam,
                  tform_image_mm_to_tool=rijit, tform_image_pixel_to_mm=olcek)
 
     etiket_donusturucu = LabelTransform(a.label_type, pairs=ciftler, **kalib)
-    tahmin_donusturucu = PredictionTransform(
-        a.pred_type, a.label_type, num_pairs=ciftler.shape[0], **kalib)
+    tahmin_donusturucu = TahminDonusturucu(
+        a.donme_temsili, a.kayip_uzayi, ciftler.shape[0], **kalib)
     noktaya = PointTransform(label_type=a.label_type, **kalib)
+    # tutarlilik kisiti icin: mm cinsinden referans kose noktalari
+    nokta_mm = torch.matmul(olcek, nokta)
 
     # ---------------- model ----------------
-    model = build_model(a, in_frames=a.num_samples, pred_dim=pred_dim).to(aygit)
+    model = omurga_kur(a.model_name, in_frames=a.num_samples, pred_dim=pred_dim,
+                       onegitimli=a.omurga_onegitimli)
+    # butun temsiller BIRIM donusumden basliyor — bkz. src/temsil.py aciklamasi
+    son_katmani_birime_ayarla(model, a.donme_temsili, ciftler.shape[0])
+    model = model.to(aygit)
+    print(f"temsil {a.donme_temsili} -> cikti {pred_dim} sayi   "
+          f"kayip uzayi {a.kayip_uzayi}   omurga "
+          f"{'ImageNet' if a.omurga_onegitimli else 'rastgele'}"
+          + (f"   tutarlilik {a.tutarlilik}" if a.tutarlilik else ""))
     optimizer = torch.optim.Adam(model.parameters(), lr=a.lr)
+    planlayici = (torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, factor=0.5, patience=5, threshold=1e-3, min_lr=1e-6)
+        if a.lr_plan == "plato" else None)
     olcekleyici = torch.cuda.amp.GradScaler(enabled=a.amp)
     kayip_fn = torch.nn.MSELoss()
     mesafe_fn = PointDistance()
@@ -194,6 +260,8 @@ def main() -> int:
         model.load_state_dict(ck["model"])
         optimizer.load_state_dict(ck["optimizer"])
         olcekleyici.load_state_dict(ck["olcekleyici"])
+        if planlayici is not None and ck.get("planlayici"):
+            planlayici.load_state_dict(ck["planlayici"])
         baslangic, en_iyi = ck["epok"] + 1, ck["en_iyi"]
         print(f"devam: epok {baslangic}, en iyi dogrulama mesafesi {en_iyi:.4f} mm")
     elif str(a.on_egitimli).lower() != "yok" and Path(a.on_egitimli).exists():
@@ -227,8 +295,12 @@ def main() -> int:
             with torch.cuda.amp.autocast(enabled=a.amp):
                 cikti = model(kareler / 255)
                 tahmin = tahmin_donusturucu(cikti)
+                ham = kayip_fn(tahmin, etiket)
+                if a.tutarlilik:
+                    ham = ham + a.tutarlilik * tutarlilik_kaybi(
+                        model, kareler, cikti, a, ciftler.shape[0], kalib, nokta_mm)
                 # biriktirme sayisina BOL: yoksa gradyan biriktirme kati kadar buyur
-                kayip = kayip_fn(tahmin, etiket) / a.biriktirme
+                kayip = ham / a.biriktirme
 
             olcekleyici.scale(kayip).backward()
             if (i + 1) % a.biriktirme == 0 or (i + 1) == len(egitim_yukleyici):
@@ -271,11 +343,16 @@ def main() -> int:
             if d_mesafe < en_iyi:
                 en_iyi = d_mesafe
                 torch.save(model.state_dict(), a.kayit / "en_iyi_model.pt")
+            if planlayici is not None:
+                planlayici.step(d_mesafe)
+            simdiki_lr = optimizer.param_groups[0]["lr"]
+            dogrulama["lr"] = simdiki_lr
             gecen = (time.time() - bas_zaman) / 60
             print(f"epok {epok:>6}  egitim {e_kayip:.4f} / {e_mesafe:.3f} mm   "
                   f"dogrulama {d_kayip:.4f} / {d_mesafe:.3f} mm"
-                  f"{'  <- en iyi' if d_mesafe == en_iyi else ''}   [{gecen:.0f} dk]",
-                  flush=True)
+                  f"{'  <- en iyi' if d_mesafe == en_iyi else ''}"
+                  + (f"   lr {simdiki_lr:.2e}" if a.lr_plan != "sabit" else "")
+                  + f"   [{gecen:.0f} dk]", flush=True)
 
         olcum_dosyasi(olcum, {"epok": epok, "egitim_kayip": e_kayip,
                               "egitim_mesafe": e_mesafe, **dogrulama})
@@ -284,7 +361,22 @@ def main() -> int:
             torch.save({"epok": epok, "model": model.state_dict(),
                         "optimizer": optimizer.state_dict(),
                         "olcekleyici": olcekleyici.state_dict(),
+                        "planlayici": (planlayici.state_dict()
+                                       if planlayici is not None else None),
                         "en_iyi": en_iyi}, ckpt_yolu)
+
+        # ARA ANLIK GORUNTU — uzun kosumun asil ciktisi
+        #
+        # Faz 4'un dort deneyi de tek bir soruyu cevapsiz birakti: cokus
+        # BUTCEYE mi bagli? Bunu tek bir bitmis modele bakarak soylemek
+        # imkansiz; gereken sey bagdasimin egitim olcegiyle nasil degistigi.
+        # Bu yuzden uzun kosumda belirli epoklarda agirliklar ayri dosyalara
+        # yaziliyor ve sonradan her biri icin r olculuyor. Duz bir cizgi
+        # "cokus butceye bagli degil" der, yukselen bir egri "bagli ve su
+        # hizla" der. Ikisi de yazilabilir bir sonuc; hangisi oldugunu
+        # bilmemek en kotusu.
+        if a.ara_kayit and epok % a.ara_kayit == 0:
+            torch.save(model.state_dict(), a.kayit / f"ara_epok{epok:06d}.pt")
         if _DURDUR:
             print(f"durduruldu (epok {epok}). Devam: python src/egit.py --devam")
             break
