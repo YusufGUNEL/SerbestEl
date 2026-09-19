@@ -142,6 +142,12 @@
     <li><a href="#k18">Hatayı teşhis etmek: sabit yanlılık mı, çarpımsal sapma mı</a></li>
     <li><a href="#k19">Epok bütçesi: "20.000 epok" ne demek, bizimki neden 178</a></li>
     <li><a href="#k20">Regresyon çöküşü: ortalamayı tahmin eden model</a></li>
+    <li><a href="#k21">Hangi ön eğitim sızıntıdır, hangisi değil</a></li>
+    <li><a href="#k22">6B sürekli dönme temsili: süreksizlik ağı neden zorlar</a></li>
+    <li><a href="#k23">Etiketsiz denetim: tutarlılık kısıtı</a></li>
+    <li><a href="#k24">Adil deney: tek değişken, eşit bütçe, eşit başlangıç</a></li>
+    <li><a href="#k25">Yalancı plato: çöküşten çıkış ölçekle geldi</a></li>
+    <li><a href="#k26">Kayıp hangi bileşeni önemsiyor — ve negatif kontrolün kazanması</a></li>
     <li class="bek">Faz ilerledikçe eklenecek…</li>
   </ol>
 </div>
@@ -952,6 +958,297 @@ model.load_state_dict(torch.load(
         <li>Regresyonda her zaman <b>tahmin–gerçek bağdaşımını</b> ölç. Tek satır kod, çöküşü anında gösteriyor.</li>
         <li>Basit temel çizgiyi hesapla: "hep ortalamayı söyleseydim metriğim ne olurdu?" Model bunu belirgin biçimde geçmiyorsa öğrenmemiştir.</li>
         <li>Her teşhis ölçümünün bir <b>kontrol grubu</b> olmalı — ölçümün çalıştığını gösteren, bilinen-iyi bir durum.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KONU 21 ============ -->
+<div class="konu" id="k21">
+  <div class="kbas"><span class="kno">21</span><h2>Hangi ön eğitim sızıntıdır, hangisi değil</h2><span class="kfaz">Faz 4</span></div>
+  <div class="kgov">
+    <p>Konu 17 bir ön eğitimli ağırlığı <b>reddetti</b>. Bu konu başka bir ön eğitimli ağırlığı <b>kabul ediyor</b>. İkisi çelişmiyor; aradaki farkı görebilmek, ön eğitimi doğru kullanmanın tamamı.</p>
+
+    <div class="blok">
+      <h4>Soru "ön eğitim var mı" değil, "ne öğrenmiş"</h4>
+      <p>Sızıntı, <b>değerlendirme kümesine ait bilginin</b> modele sızmasıdır. Ölçüt tek: o ağırlıklar eğitilirken test deneklerimizin verisi görülmüş mü?</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Ağırlık</th><th>Neyle eğitildi</th><th>Test deneklerimizi gördü mü</th><th>Karar</th></tr></thead>
+      <tbody>
+        <tr><td>TUS-REC2024 model ağırlığı</td><td>TUS-REC2024 eğitim kümesi</td><td><b class="ele">Evet</b> — bizim veri kümemiz o kümenin ta kendisi</td><td><b class="ele">Sızıntı</b></td></tr>
+        <tr><td>ImageNet EfficientNet-B1</td><td>1,3M doğal fotoğraf</td><td><b class="sec">Hayır</b> — ultrason yok, denek yok, hareket etiketi yok</td><td><b class="sec">Meşru</b></td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="kutu"><span class="kt">Denek bazlı bölme burada yetmiyor</span>
+      Kendi bölmemiz deneklere göre ayrıldığı için <i>kendi</i> eğitimimizde sızıntı yok. Ama dışarıdan gelen bir ağırlık kendi bölmesini kullandı; onun eğitim kümesi bizim test kümemizle kesişiyor olabilir. Dışarıdan gelen her ağırlık için sorulacak soru ayrı: <b>kim, hangi deneklerle eğitti?</b></div>
+
+    <div class="blok">
+      <h4>Neden bu problemde işe yarıyor</h4>
+      <p>Referansın ağ kurucusu <code>efficientnet_b1(weights=None)</code> diyor: 6,5 milyon parametre <b>tamamen rastgele</b> başlıyor. Referans bunu 20.000 epokla, 14,4 milyon pencereyle telafi ediyor. Bizim bütçemiz 128 bin pencere — %0,9'u. Faz 3'ün teşhisi (konu 20) tam buradan çıktı: ağ görmeyi öğrenemeden ortalamayı söylemeye yerleşti.</p>
+      <p>ImageNet ağırlığı kenar, doku ve yerel desen süzgeçlerini <b>hazır</b> getiriyor. Ultrason fotoğraf değil, ama ilk katmanların öğrendiği şey — kenar, yönelim, yerel kontrast — alana özgü değil.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">İlk katman özel: 3 kanal ağırlığı 2 kanala nasıl taşınır</span>
+      Referans ilk evrişimi 3 kanaldan <code>in_frames</code> kanala değiştiriyor; o katmanın ImageNet ağırlığı doğrudan kullanılamaz. Rastgele bırakmak ilk katmanı yine sıfırdan öğrenmeye bırakırdı. Yapılan: RGB süzgeçlerinin <b>kanal ortalaması</b> alınıp her kare kanalına kopyalanıyor — gri seviyeli girdi için doğru karşılık bu.
+      <p style="margin-top:7px">Kanal sayısı değiştiği için toplam da değişir, o yüzden <code>3/in_frames</code> ile ölçekleniyor. Yoksa çıktının büyüklüğü değişir ve sonraki katmanların BatchNorm istatistikleri <b>anlamsız</b> bir yerden başlar — ImageNet ağırlığının yarısı boşa gider.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 22 ============ -->
+<div class="konu" id="k22">
+  <div class="kbas"><span class="kno">22</span><h2>6B sürekli dönme temsili: süreksizlik ağı neden zorlar</h2><span class="kfaz">Faz 4</span></div>
+  <div class="kgov">
+    <p>Konu 3 dönme temsillerini tanıttı ve "sürekli temsiller daha iyi" dedi. O zaman bu bir <b>okuma notuydu</b>. Faz 3'ten sonra ölçülmüş bir gerekçe var: ön eğitimli model bile dönmeyi ötelemeden belirgin kötü görüyor (öteleme ölçeği 0,30–0,73, dönme ölçeği <b>0,09–0,29</b>).</p>
+
+    <div class="blok">
+      <h4>Süreksizlik tam olarak ne demek</h4>
+      <p>Sinir ağı <b>sürekli</b> bir fonksiyon öğrenir: girdi azıcık değişince çıktı azıcık değişir. Hedef fonksiyon süreksizse ağ onu öğrenemez, sınırın iki yakasını ortalar.</p>
+      <p>Euler açılarında sarma var: gerçek dönme +179°'den +181°'ye geçtiğinde temsil +179'dan −179'a <b>atlar</b>. Görüntü neredeyse aynı, hedef sayı 358 birim değişti. Kuaterniyonda çift örtü var: <code>q</code> ve <code>−q</code> aynı dönmedir, ağ hangisini söyleyeceğini bilemez.</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Temsil</th><th>Boyut</th><th>Süreksiz mi</th><th>Çıktı hep geçerli mi</th></tr></thead>
+      <tbody>
+        <tr><td>Euler ZYX</td><td>3</td><td><b class="ele">Evet</b> (sarma, gimbal kilidi)</td><td>evet</td></tr>
+        <tr><td>Kuaterniyon</td><td>4</td><td><b class="ele">Evet</b> (çift örtü)</td><td>normlanırsa</td></tr>
+        <tr><td>Matris 3×4</td><td>12</td><td>hayır</td><td><b class="ele">Hayır</b> — dik değil</td></tr>
+        <tr><td><b>6B sürekli</b></td><td>6</td><td><b class="sec">Hayır</b></td><td><b class="sec">Evet</b> (Gram-Schmidt)</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4>6B nasıl çalışıyor</h4>
+      <p>Ağ iki 3B vektör üretir. Gram-Schmidt ile ortonormal bir taban kurulur:</p>
+      <div class="cizim"><code>b1 = a1 / |a1|<br>b2 = (a2 − ⟨b1,a2⟩·b1) normlanır &nbsp;&nbsp;← a1 yönündeki bileşen çıkarılır<br>b3 = b1 × b2 &nbsp;&nbsp;← sağ el kuralı, det = +1<br>R = [b1 b2 b3]</code></div>
+      <p>Neden 9 değil 6 sayı: bir dönme matrisinin <b>ilk iki sütunu</b> üçüncüsünü tek biçimde belirler (çapraz çarpım). Üçüncü sütunu ağa ürettirmek gereksiz serbestlik verir.</p>
+      <p>Neden matris temsilinden iyi: ağ 12 sayıyı serbestçe üretirse çıkan matris <b>dik olmaz</b> — ölçüldü, sapma 6,69. Dik olmayan bir "dönme" zincirlendiğinde ölçek ve eğrilik hatası da biriktirir.</p>
+    </div>
+
+    <div class="kutu"><span class="kt">Ölçüldü: 6B çıktısı her zaman geçerli</span>
+      Ağ çıktısı tamamen rastgele ve dengesizken bile (<code>randn × 5</code>) Gram-Schmidt'in ürettiği matris ortonormal: <code>RᵀR − I</code> sapması 5,8·10⁻⁷, <code>det − 1</code> sapması 3,6·10⁻⁷. Yani ağın hiçbir aşamada "geçersiz dönme" üretme ihtimali yok. Kuaterniyonda normlamayı unutursan, matriste hiçbir zaman, bu garanti yoktur.</div>
+
+    <div class="tuzak"><span class="kt">Yarı hassasiyette normalize patlar</span>
+      <code>b1 = a1/|a1|</code> ve çapraz çarpım, küçük normlarda AMP'nin float16'sında güvenilmez. Eğitimin ilk adımlarında çıktı sıfıra yakındır — tam o bölgededir. Dönüşüm float32'ye zorlanıyor ve <code>eps</code> koruması var; <code>tests/test_temsil.py</code> T7 tam sıfır çıktıda NaN doğmadığını kilitliyor.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 23 ============ -->
+<div class="konu" id="k23">
+  <div class="kbas"><span class="kno">23</span><h2>Etiketsiz denetim: tutarlılık kısıtı</h2><span class="kfaz">Faz 4</span></div>
+  <div class="kgov">
+    <p>Şimdiye kadar her kayıp terimi <b>gerçek referansa</b> bakıyordu. Tutarlılık kısıtı bakmıyor: modelin <b>kendi iki tahminini</b> karşılaştırıyor ve aralarındaki çelişkiyi cezalandırıyor. Ek etiket istemez.</p>
+
+    <div class="blok">
+      <h4>Fikir</h4>
+      <p>Kare sırası ters verilirse ağ <code>T(0→1)</code> tahmin eder. Düz sırada <code>T(1→0)</code> tahmin etmişti. İkisi de doğruysa bileşimleri <b>birim matris</b> olmalı:</p>
+      <div class="cizim"><code>T(1→0) · T(0→1) = I</code></div>
+      <p>Gerçek dönüşümler bu denklemde hiç geçmiyor. Kısıt, etiketin olmadığı yerde bile uygulanabilir — ve doğrudan <b>hata birikmesini</b> hedefler, çünkü birikme tam olarak ard arda çarpılan dönüşümlerin birbiriyle tutarsızlığından doğar.</p>
+    </div>
+
+    <div class="kutu"><span class="kt">Ceza neden milimetre cinsinden ölçülüyor</span>
+      Bileşim matrisini doğrudan <code>I</code>'dan çıkarmak birimleri karıştırır: dönme girdileri ~1 mertebesinde, öteleme girdileri mm. Bunun yerine bileşim referans köşe noktalarına uygulanıp <b>noktaların ne kadar kaydığına</b> bakılıyor. Böylece kısıt ana kayıpla aynı birimde olur ve ağırlık katsayısı yorumlanabilir kalır: 1,0 demek "bir milimetrelik tutarsızlık, bir milimetrelik konum hatası kadar cezalandırılır".</div>
+
+    <div class="tuzak"><span class="kt">Bedeli gizli değil: ikinci ileri geçiş</span>
+      Kısıt, ağı her adımda <b>iki kez</b> koşturuyor. Sabit süre bütçesinde bu, görülen pencere sayısının yarıya inmesi demek. Bir fikrin "işe yaradı mı" sorusu, bu bedel ödendikten <i>sonra</i> sorulur. Tabloda <b>epok</b> sütunu bu bedeli görünür kılıyor — kayıp sütunlarına bakıp bedeli unutmak, kolayca yanlış sonuç çıkarttırır.</div>
+
+    <div class="blok">
+      <h4>Kısıtın kendi testi</h4>
+      <p>Bir kısıt sessizce yanlış olabilir: modeli yanlış yere çeker, kayıp yine düşer, kimse fark etmez. <code>tests/test_temsil.py</code> T6 iki yönlü kontrol yapıyor — gerçek bir dönüşüm ve <b>tersi</b> verildiğinde ceza 2,9·10⁻¹¹ mm² (sıfır), <b>başka</b> bir dönüşüm verildiğinde 74,8 mm². İkinci satır olmadan birincisi hiçbir şey kanıtlamaz: hep sıfır döndüren bozuk bir ceza da ilk testi geçerdi.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 24 ============ -->
+<div class="konu" id="k24">
+  <div class="kbas"><span class="kno">24</span><h2>Adil deney: tek değişken, eşit bütçe, eşit başlangıç</h2><span class="kfaz">Faz 4</span></div>
+  <div class="kgov">
+    <p>Faz 4'ün çıktısı tek bir iyi sayı değil, <b>karşılaştırılabilir bir kayıt</b>. Karşılaştırmayı bozan üç şey var ve üçü de sessizce bozar.</p>
+
+    <div class="blok">
+      <h4>1. Tek değişken</h4>
+      <p>İki şey birden değişirse hangisinin işe yaradığı bilinemez. Sonuç iyi çıkarsa ikisine birden mal edilir; kötü çıkarsa biri diğerini örtmüş olabilir. Deneyler <code>scripts/faz4_deney.py</code> içinde adlarıyla duruyor — hangi bayrağın hangi deneye ait olduğu koddan okunuyor, elle yazılmıyor, bu yüzden kural unutulamıyor.</p>
+    </div>
+
+    <div class="blok">
+      <h4>2. Bütçe: süre, epok değil</h4>
+      <p>Epok saymak adil görünür ama değildir: bağlam uzunluğu ya da tutarlılık kısıtı değişince bir epoğun <b>maliyeti</b> değişir. Beş kareye bakan bir ağın epoğu, iki kareye bakanınkinden pahalıdır; tutarlılık kısıtı epoğu ikiye katlar.</p>
+      <p>Sabit süre bu sorunu ortadan kaldırıyor ve daha doğru bir soru soruyor: <b>aynı donanımda aynı süre verildiğinde hangisi daha iyi?</b> Bir fikrin gizli bedeli o zaman tabloda görünür — aynı sürede kaç epok sığdığı sütununda.</p>
+    </div>
+
+    <div class="blok">
+      <h4>3. Eşit başlangıç</h4>
+      <p>Euler temsilinde ağın son katmanı sıfır üretirse dönüşüm <b>birim matristir</b>. Rastgele başlatılmış bir ağ yaklaşık sıfır üretir, yani eğitim "hiç hareket yok" tahmininden başlar — kare arası gerçek hareket 0,4 mm olduğundan bu çok iyi bir başlangıç noktasıdır.</p>
+      <p>6B'de sıfır çıktı birim <b>değildir</b>: Gram-Schmidt sıfır vektörleri normlayıp rastgele bir dönme verir. Kuaterniyonda (0,0,0,0) normsuzdur, matriste sıfır matris hiç dönüşüm değildir.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">Ölçüldü — düzeltmeseydik yanlış sonuç çıkacaktı</span>
+      Duman veri kümesinde ilk epok (kod yolu ölçeği, bilimsel sonuç değil):
+      <div class="tbl" style="margin-top:8px"><table>
+        <thead><tr><th>Temsil</th><th>Son katman yanlılığı</th><th>İlk epok kaybı</th><th>İlk epok hatası</th></tr></thead>
+        <tbody>
+          <tr><td>Euler</td><td>rastgele</td><td>183</td><td>15,97 mm</td></tr>
+          <tr><td>6B</td><td>rastgele</td><td><b class="ele">10.174</b></td><td><b class="ele">131,45 mm</b></td></tr>
+          <tr><td>Euler</td><td>birim</td><td>241</td><td>15,30 mm</td></tr>
+          <tr><td>6B</td><td>birim</td><td><b class="sec">240</b></td><td><b class="sec">15,26 mm</b></td></tr>
+        </tbody>
+      </table></div>
+      Fark temsilin kendisinden değil, başlangıç noktasından geliyordu. Düzeltmeden yapılan karşılaştırma "6B çok daha kötü" derdi ve bu <b>yanlış</b> olurdu. Çözüm: son katmanın <b>yanlılığı</b> her temsilde birim dönüşümü kodluyor, ağırlıklar rastgele kalıyor.</div>
+
+    <div class="kutu"><span class="kt">Değiştirilen kodun eskisini bozmadığının kanıtı</span>
+      Faz 4 için yazılan temsil katmanı, euler yolunu da içine aldı. O yolla Faz 2'nin dört sayısı üretilmişti; bir ondalık kayarsa bütün karşılaştırmalar dayanaksız kalırdı. <code>tests/test_temsil.py</code> T4 aynı girdiyle bizim çıktımızı referansın çıktısıyla karşılaştırıyor ve farkın <b>tam sıfır</b> olmasını şart koşuyor — yaklaşık değil, bit bit aynı.</div>
+
+    <div class="blok">
+      <h4>4. Seçim kümesi ile rapor kümesi ayrı</h4>
+      <p>Yedi deneyin en iyisini test skoruna göre seçmek, test kümesini sessizce <b>eğitim kümesine</b> çevirir: yeterince çok deney denersen biri şans eseri iyi çıkar ve o şans rapor edilir. Sıralama doğrulama kümesinde yapılıyor; test kümesine yalnızca kazanan yöntem için, bir kere dokunuluyor.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KONU 25 ============ -->
+<div class="konu" id="k25">
+  <div class="kbas"><span class="kno">25</span><h2>Yalancı plato: çöküşten çıkış ölçekle geldi</h2><span class="kfaz">Faz 4</span></div>
+  <div class="kgov">
+    <p>Faz 4'ün altı deneyi aynı duvara tosladı, yedincisi duvarı yıktı — ve yıkan şey yeni bir fikir değil, <b>aynı fikrin sekiz kat bütçeyle koşulmuş hali</b>ydi. Bu konu, o sekiz saatin neyi ortaya çıkardığını ve ondan önceki altı deneyin neden yanlış yerde arandığını anlatıyor.</p>
+
+    <div class="blok">
+      <h4>Duvar</h4>
+      <p>Faz 3'ün teşhisi çöküştü: model kareye özgü hareketi değil veri kümesinin ortalamasını söylüyordu (konu 20). Faz 4'te bunu kırmak için beş <b>bağımsız</b> eksen tek tek denendi. Hepsi eşit bütçeyle, hepsi tek değişkenle:</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Değişen</th><th>GP (mm)</th><th>Tabana göre</th><th>|r|</th></tr></thead>
+      <tbody>
+        <tr><td>— (taban)</td><td>93,96</td><td>—</td><td>0,035</td></tr>
+        <tr><td>Dönme temsili → 6B</td><td>88,12</td><td>%−6,2</td><td>0,041</td></tr>
+        <tr><td>Omurga → ImageNet</td><td>88,63</td><td>%−5,7</td><td>0,020</td></tr>
+        <tr><td>Bağlam 2 → 5 kare</td><td>91,75</td><td>%−2,4</td><td>0,026</td></tr>
+        <tr><td>6B + ImageNet birlikte</td><td>86,81</td><td>%−7,6</td><td>0,013</td></tr>
+        <tr><td>Veri 720 → 24 tarama</td><td>—</td><td>—</td><td>0,066</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="kutu"><span class="kt">Sonuçların birbirine benzemesi tesadüf değil</span>
+      Beş eksen birbirinden tamamen bağımsız; buna rağmen hepsi GP'yi %2–8 oynatıp <code>r</code>'yi yerinde bıraktı. Üstelik <b>katkılar toplanmadı</b>: 6B tek başına %6,2, ImageNet tek başına %5,7, ikisi birlikte %11,9 değil %7,6. Bu, hepsinin aynı şeyi farklı yoldan yaptığını söylüyor — modelin ürettiği <i>sabiti</i> biraz iyileştirmek. Hiçbiri modele <i>bakmayı</i> öğretmiyordu.</div>
+
+    <div class="blok">
+      <h4>Yanlış yerde aramanın sebebi: yalancı plato</h4>
+      <p>Altı deneyin hepsi 60 dakikalık bütçede koştu ve hepsinin doğrulama eğrisi epok 55–115 arasında <b>düzleşti</b>. Düzleşen bir eğri "model yakınsadı, daha fazla eğitmenin faydası yok" demektir — normalde. Burada yalan söylüyordu.</p>
+      <p>Aynı yapılandırma sekiz kat bütçeyle koşulunca:</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Epok</th><th>Doğrulama mesafesi</th><th>Not</th></tr></thead>
+      <tbody>
+        <tr><td>120</td><td>0,409 mm</td><td>60 dakikalık bütçenin bittiği yer — "plato"</td></tr>
+        <tr><td>240</td><td>0,304 mm</td><td></td></tr>
+        <tr><td>360</td><td>0,217 mm</td><td></td></tr>
+        <tr><td>600</td><td>0,194 mm</td><td></td></tr>
+        <tr><td>911</td><td><b class="sec">0,187 mm</b></td><td>burada gerçekten düzleşiyor</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="tuzak"><span class="kt">Plato gerçek mi, yoksa çöküş havuzu mu</span>
+      Model ortalamayı söylemeye yerleştiğinde kayıp, gerçek hareketin saçılımı kadar bir tabana oturur ve <b>orada uzun süre kalır</b>. Dışarıdan bakınca yakınsamış bir eğri görünür. Ayırt etmenin yolu kaybı değil <b>bağdaşımı</b> izlemek: <code>r</code> hâlâ sıfıra yakınsa o plato yakınsama değil, çöküş havuzunun dibidir ve model oradan çıkabilir.
+      <p style="margin-top:7px">Pratik kural: bir regresyon eğrisi düzleştiğinde "bitti" demeden önce <code>r</code>'ye bak. Sıfırsa bütçeyi artır; sıfır değilse gerçekten bitmiştir.</p></div>
+
+    <div class="blok">
+      <h4>Çıkış kademeli değil — bir faz geçişi</h4>
+      <p>Uzun koşumda her 50 epokta ağırlıklar ayrı bir dosyaya yazıldı ve sonradan her biri için bağdaşım ölçüldü. Ortaya çıkan eğri, yavaş yavaş iyileşen bir model göstermiyor:</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Epok</th><th>Görülen pencere</th><th>|r| ortanca</th><th>|r| en büyük</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>0</td><td>0,052</td><td>0,140</td></tr>
+        <tr><td>100</td><td>72.000</td><td>0,024</td><td>0,197</td></tr>
+        <tr><td>150</td><td>108.000</td><td>0,020</td><td>0,236</td></tr>
+        <tr><td><b>200</b></td><td><b>144.000</b></td><td><b>0,025</b></td><td><b>0,297</b></td></tr>
+        <tr><td><b class="sec">250</b></td><td><b class="sec">180.000</b></td><td><b class="sec">0,173</b></td><td><b class="sec">0,929</b></td></tr>
+        <tr><td>500</td><td>360.000</td><td>0,490</td><td>0,966</td></tr>
+        <tr><td>900</td><td>648.000</td><td><b class="sec">0,572</b></td><td><b class="sec">0,972</b></td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="kutu"><span class="kt">Bütün Faz 4'ü açıklayan tek satır</span>
+      Model <b>200 epok boyunca</b> bağdaşım sıfıra yakın halde duruyor, sonra epok 200–250 arasında aniden çıkıyor: <code>|r|</code> en büyük 0,297'den <b>0,929</b>'a sıçrıyor.
+      <p style="margin-top:7px">60 dakikalık bütçe epok <b>~115</b>'te bitiyor — yani <b>çıkış noktasının yarısında</b>. Dokuz deneyin dokuzu da ölçümünü çöküş havuzunun <i>içinde</i> yaptı. Havuzun dibinde hangi fikir denenirse denensin, ölçülen şey fikrin katkısı değil havuzun derinliği olur. Beş bağımsız eksenin aynı küçük kazancı vermesi ve katkıların toplanmaması bunun ikinci kanıtıydı.</div>
+
+    <div class="blok">
+      <h4>Çıkıştan sonra ölçülenler</h4>
+      <p>Sekiz saatlik koşum dört ölçünün dördünü birden değiştirdi — ve bileşen ölçeği <code>a</code> sıfırdan 0,78'e çıktı, yani model artık hareketin yalnızca yönünü değil <b>büyüklüğünü</b> de yakalıyor:</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th></th><th>taban (60 dk)</th><th>uzun koşum (8 sa)</th><th>değişim</th></tr></thead>
+      <tbody>
+        <tr><td>GP</td><td>93,96 mm</td><td><b class="sec">15,38 mm</b></td><td>%−83,6</td></tr>
+        <tr><td>GL</td><td>93,11 mm</td><td><b class="sec">13,59 mm</b></td><td>%−85,4</td></tr>
+        <tr><td>LP</td><td>0,4131 mm</td><td><b class="sec">0,1724 mm</b></td><td>%−58,3</td></tr>
+        <tr><td>LL</td><td>0,4231 mm</td><td><b class="sec">0,1578 mm</b></td><td>%−62,7</td></tr>
+        <tr><td>GP/LP</td><td>227×</td><td><b class="sec">89×</b></td><td>sürüklenme oranı</td></tr>
+        <tr><td><code>a</code> (öteleme x)</td><td>+0,0003</td><td><b class="sec">+0,782</b></td><td></td></tr>
+        <tr><td><code>r</code> (öteleme x)</td><td>+0,035</td><td><b class="sec">+0,832</b></td><td></td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="kutu"><span class="kt">Kontrol grubu, sonucun gerçekten iyi olduğunu söylüyor</span>
+      Faz 3'te ölçülen ön eğitimli referans modeli — <b>aynı mimari, aynı veri</b>, ama TUS-REC2024 eğitim kümesiyle eğitildiği için bizim test deneklerimizi görmüş — <code>r</code> = 0,844 / 0,529 / 0,772 veriyordu. Bizim uzun koşumumuz 0,832 / 0,548 / 0,506. <b>Aynı mertebede, ve sızıntısız.</b> Kontrol satırı olmadan "0,83 iyi mi" sorusunun cevabı yoktu.</div>
+
+    <div class="blok">
+      <h4>Alınacak dersler</h4>
+      <ul>
+        <li><b>Düzleşen eğri yakınsama demek değil.</b> Çöküş havuzunun dibi de düzdür. Ayırt eden şey kayıp değil bağdaşım.</li>
+        <li><b>Birbirinden bağımsız fikirlerin hepsi aynı küçük kazancı veriyorsa</b>, muhtemelen hiçbiri asıl sorunu çözmüyordur; aynı ikincil etkiyi farklı yoldan üretiyorlardır. Katkıların toplanıp toplanmadığını ölçmek bunu ortaya çıkarır.</li>
+        <li><b>Negatif sonuçlar birikince yön gösterir.</b> Beş eksenin elenmesi, geriye kalan tek ekseni (bütçe) sınamayı zorunlu kıldı — ve cevap oradaydı.</li>
+        <li><b>Mimarinin yapabileceğinin üst sınırını bilmek şart.</b> Ön eğitimli modelin <code>r</code> = 0,84'ü, "bu ağ bu işi öğrenebiliyor" demekti; öğrenemeyen şey ağ değil, o bütçeyle eğitilmiş haliydi.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KONU 26 ============ -->
+<div class="konu" id="k26">
+  <div class="kbas"><span class="kno">26</span><h2>Kayıp hangi bileşeni önemsiyor — ve negatif kontrolün kazanması</h2><span class="kfaz">Faz 4</span></div>
+  <div class="kgov">
+    <p>Konu 6 "parametre mi nokta mı" sorusunu sormuş ve nokta tabanlı kaybın gerekçesini anlatmıştı: hata, değerlendirme ölçüsüyle aynı birimde — milimetre — olur. Gerekçe hâlâ doğru. Ama Faz 4'te ölçüldü ve bu bütçede <b>tersi</b> daha iyi çalıştı. Bu konu, neden.</p>
+
+    <div class="blok">
+      <h4>Deney neden "negatif kontrol" olarak kondu</h4>
+      <p>Yol haritası "kayıp fonksiyonunu nokta tabanlı yap" diyor. Ama referans kaybı <b>zaten öyle</b>: <code>pred_type=parameter</code> ile <code>label_type=point</code> birleşince, tahmin edilen dönüşüm görüntü köşelerine uygulanıyor ve hata mm cinsinden alınıyor. Yani o hattın "yap" hali tabanda kurulu.</p>
+      <p>Bir fikrin değeri ancak <b>kaldırılınca</b> sayıya döner. Bu yüzden deney tersine kuruldu: kayıp ham parametreye alındı ve ne kaybedildiği ölçüldü.</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th></th><th><code>taban</code> (nokta, mm)</th><th><code>C_parametre</code> (ham parametre)</th></tr></thead>
+      <tbody>
+        <tr><td>GP</td><td>93,963 mm</td><td><b class="sec">58,429 mm</b> (%−37,8)</td></tr>
+        <tr><td>LP</td><td>0,4131 mm</td><td><b class="sec">0,3014 mm</b></td></tr>
+        <tr><td>|r|</td><td>0,035</td><td><b class="sec">0,183</b> (beş katı)</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4>Neden — ölçek meselesi</h4>
+      <p>Nokta kaybı dönüşümü köşe noktalarına uygulayıp mm cinsinden mesafe alıyor. O mesafeyi <b>öteleme domine ediyor</b>, çünkü büyüklük orada: kare başına ~0,4 mm ötelemeye karşılık dönme, görüntü köşesinde çok daha küçük bir kayma üretiyor.</p>
+      <p>Gradyanın büyüklüğü de bu oranı takip eder. Sonuç: ağ ötelemeyi öğrenmeye çalışırken dönmeye düşen pay küçük kalıyor. Ham parametre kaybı altı bileşeni <b>daha dengeli</b> tartıyor ve dönmenin payı artıyor.</p>
+      <p>Bu, Faz 3'te ölçülen bir şeyin doğrudan karşılığı: çökmeyen bir modelde bile dönme ötelemeden belirgin kötü tahmin ediliyordu (öteleme ölçeği 0,30–0,73, dönme ölçeği 0,09–0,29).</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">"Kayıp değerlendirme ölçüsüyle aynı birimde olsun" yetmiyor</span>
+      Bu kural doğru ve faydalı — ama <b>hangi bileşenin ne kadar ağırlık aldığını</b> söylemiyor. Çok bileşenli bir regresyonda kaybı tek bir fiziksel birime indirgemek, o birimde büyük görünen bileşene sessizce öncelik vermek demektir.
+      <p style="margin-top:7px">Kontrol edilecek şey: her bileşenin kayba katkısını ayrı ayrı yazdır. Biri diğerlerini eziyorsa, "birim doğru" olması onu düzeltmez.</p></div>
+
+    <div class="kutu"><span class="kt">Bu sonuç nokta tabanlı kaybı çürütmüyor</span>
+      Ölçülen şey dar: <b>bu bütçede, çöküş havuzundan çıkma hızı</b> bakımından parametre kaybı daha iyi. Nokta kaybının kendi gerekçesi (hatanın değerlendirmeyle aynı birimde olması, açı hatasının uzak pikselde büyük kayma yaratmasını doğru cezalandırması) hâlâ geçerli ve uzun bütçede tabloyu değiştirebilir. İkisi birlikte <b>denenmedi</b> — Faz 5'in ilk satırı bu.</div>
+
+    <div class="blok">
+      <h4>Alınacak ders</h4>
+      <ul>
+        <li>Bir tavsiyenin gerekçesi doğru olabilir ve yine de <b>senin şartlarında</b> ters işleyebilir. Ölçmeden bilinmez.</li>
+        <li><b>Negatif kontroller bazen kazanır.</b> "Bunu kaldırırsak ne kaybederiz" diye kurulan deney, kaldırınca kazandırdı. Kontrol koşulmasaydı bu hiç görülmeyecekti.</li>
+        <li>Çok bileşenli kayıplarda asıl soru birim değil, <b>bileşenler arası ağırlık dağılımı</b>.</li>
       </ul>
     </div>
   </div>

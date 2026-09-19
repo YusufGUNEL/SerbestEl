@@ -115,7 +115,10 @@ def yazdir(satirlar: list[dict], baslik: str) -> str:
 
 
 def markdown(satirlar: list[dict], taban: dict | None) -> str:
-    sat = ["| Deney | Hat | GP | GL | LP | LL | GP/LP | \\|r\\| | Epok | Tabana gore GP |",
+    # Sutun adi "tabana gore GP" belirsizdi: GP DUSUNCE iyilesme oluyor, o
+    # yuzden isaret ters okunuyordu. Artik acikca IYILESME yaziyor —
+    # arti = tabandan iyi, eksi = tabandan kotu.
+    sat = ["| Deney | Hat | GP | GL | LP | LL | GP/LP | \\|r\\| | Epok | GP iyilesmesi |",
            "|---|---|---|---|---|---|---|---|---|---|"]
     for s in satirlar:
         def f(k, bicim="{:.3f}"):
