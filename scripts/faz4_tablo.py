@@ -32,7 +32,7 @@ import sys
 from pathlib import Path
 
 KOK = Path(__file__).resolve().parents[1]
-FAZ4 = KOK / "results" / "faz4"
+VARSAYILAN_KOK = KOK / "results" / "faz4"
 
 
 def _oku(yol: Path):
@@ -60,8 +60,8 @@ def epok_sayisi(dizin: Path) -> tuple[int | None, float | None]:
     return (epok + 1 if epok is not None else None), en_iyi
 
 
-def deney_satiri(ad: str, dosya: str) -> dict:
-    dizin = FAZ4 / ad
+def deney_satiri(ad: str, dosya: str, kok: Path) -> dict:
+    dizin = kok / ad
     s: dict = {"ad": ad}
     d = _oku(dizin / "deney.json") or {}
     s["hat"] = d.get("hat", "?")
@@ -142,22 +142,35 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--test", action="store_true",
                     help="dogrulama yerine test kumesi olcumlerini oku")
-    ap.add_argument("--cikti", type=Path, default=FAZ4 / "tablo.md")
+    ap.add_argument("--kok", type=Path, default=VARSAYILAN_KOK)
+    ap.add_argument("--cikti", type=Path, default=None)
     a = ap.parse_args()
 
-    if not FAZ4.exists():
-        raise SystemExit(f"deney dizini yok: {FAZ4}")
+    if not a.kok.exists():
+        raise SystemExit(f"deney dizini yok: {a.kok}")
+    if a.cikti is None:
+        a.cikti = a.kok / "tablo.md"
     dosya = "test_olculer.json" if a.test else "dogrulama_olculer.json"
-    adlar = sorted(d.name for d in FAZ4.iterdir() if d.is_dir())
-    satirlar = [deney_satiri(ad, dosya) for ad in adlar]
-    # taban once, sonra GP'ye gore siralanmis digerleri; olcumu olmayanlar sona
-    taban = next((s for s in satirlar if s["ad"] == "taban"), None)
+    adlar = sorted(d.name for d in a.kok.iterdir() if d.is_dir())
+    satirlar = [deney_satiri(ad, dosya, a.kok) for ad in adlar]
+    # Cipa satiri once gelir. Faz 4'te adi "taban", Faz 5 merdiveninde
+    # "A1_referans"; ikisi de yoksa ada gore ilk satir cipa sayilir.
+    taban = next((s for s in satirlar if s["ad"] in ("taban", "A1_referans")),
+                 satirlar[0] if satirlar else None)
     kalan = [s for s in satirlar if s is not taban]
-    kalan.sort(key=lambda s: (s.get("GP") is None, s.get("GP", 0)))
+    # Merdiven satirlari SIRAYLA okunmali (A1 -> A2 -> A3), GP'ye gore degil:
+    # ablasyonun anlami kumulatif sirada. Faz 4'un tek degiskenli deneyleri
+    # ise siralanabilir, orada sira anlam tasimiyor.
+    merdiven = all(s["ad"][:1].isalpha() and s["ad"][1:2].isdigit()
+                   for s in satirlar)
+    if merdiven:
+        kalan.sort(key=lambda s: s["ad"])
+    else:
+        kalan.sort(key=lambda s: (s.get("GP") is None, s.get("GP", 0)))
     sirali = ([taban] if taban else []) + kalan
 
     kume = "TEST" if a.test else "DOGRULAMA"
-    print(yazdir(sirali, f"FAZ 4 DENEYLERI — {kume} KUMESI"))
+    print(yazdir(sirali, f"{a.kok.name.upper()} — {kume} KUMESI"))
     print("\nr = alti bilesenin |bagdasim| ortancasi. Sifira yakin = model "
           "goruntuye bakmiyor,\nveri kumesinin ortalama hareketini soyluyor "
           "(Faz 3 teshisi). O satirda dort sayi\n'iyi' gorunse bile bir "

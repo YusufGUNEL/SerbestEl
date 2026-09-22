@@ -167,6 +167,68 @@ DENEYLER: dict[str, dict] = {
         "egitim": ["--omurga-onegitimli", "--ara-kayit", "50"],
         "mimari": ["--donme-temsili", "6b"],
     },
+    # ---------------------------------------------------------------------
+    # FAZ 5 — ABLASYON MERDIVENI
+    #
+    # Faz 4 tek degiskenli deneyler yapti: her biri TABANDAN ayriliyordu.
+    # Yol haritasinin Faz 5 maddesi baska bir sey istiyor: KUMULATIF bir
+    # merdiven (referans -> +C -> +C+B -> +C+B+G), cunku sorulan soru
+    # "bu fikir tek basina ne getirir" degil, "oncekilerin USTUNE ne ekler".
+    # Ikisi ayni sey degil: Faz 4 olctu ki B ve G tek tek %6 getiriyor ama
+    # birlikte %12 degil %7,6 getiriyor.
+    #
+    # BUTCE NEDEN 180 DAKIKA
+    # Faz 4'un ana bulgusu, cokusun epok 200-250 arasinda bir FAZ GECISIYLE
+    # bittigi. 60 dakikalik butce epok ~115'te bitiyordu, yani gecisin
+    # yarisinda — o tablonun her satiri havuz derinligini olcuyordu, fikrin
+    # katkisini degil. Havuzun icinde yapilan bir ablasyon HICBIR SEY olcmez.
+    # 180 dakika en yavas yapilandirmada bile ~300 epok veriyor; butun
+    # satirlar gecisin otesinde.
+    #
+    # SIRA NEDEN C -> B -> G
+    # Faz 4'un esit butceli sonuclarina gore buyukten kucuge: C %37,8,
+    # B %6,2, G %5,7. Boylece her basamak bir oncekinin uzerine ne
+    # ekledigini gosterir ve azalan getiri gorulur.
+    # ---------------------------------------------------------------------
+    "A1_referans": {
+        "hat": "referans",
+        "baslik": "Merdivenin cipasi — referansin kendi ayarlari",
+        "neden": "Nokta tabanli kayip, Euler temsili, rastgele omurga. "
+                 "Faz 2'nin yapilandirmasi, Faz 5 butcesiyle. Ayrica kendi "
+                 "basina bir soruyu cevapliyor: taban, 180 dakikada faz "
+                 "gecisini tek basina yapabiliyor mu?",
+        "egitim": ["--ara-kayit", "50"],
+        "mimari": [],
+    },
+    "A2_C": {
+        "hat": "+C",
+        "baslik": "+ parametre uzayinda kayip",
+        "neden": "Faz 4'un en buyuk tek degiskenli kazanci (%37,8). Merdivenin "
+                 "ilk basamagi; mm cinsinden nokta kaybi otelemeye agirlik "
+                 "verirken parametre kaybi alti bileseni daha dengeli tartiyor.",
+        "egitim": ["--kayip-uzayi", "parametre", "--ara-kayit", "50"],
+        "mimari": [],
+    },
+    "A3_CB": {
+        "hat": "+C+B",
+        "baslik": "+ 6B surekli donme temsili",
+        "neden": "Ikinci basamak. C donmeye dusen payi artirdiysa, B'nin "
+                 "katkisi kucumelidir — ikisi de ayni sorunu, donmenin kotu "
+                 "ogrenilmesini, hedefliyor. Azalan getiri beklentisi burada "
+                 "sinaniyor.",
+        "egitim": ["--kayip-uzayi", "parametre", "--ara-kayit", "50"],
+        "mimari": ["--donme-temsili", "6b"],
+    },
+    "A4_CBG": {
+        "hat": "+C+B+G",
+        "baslik": "+ ImageNet omurga",
+        "neden": "Ucuncu basamak ve merdivenin tepesi. G digerlerinden farkli "
+                 "bir seyi degistiriyor (nereden baslandigini, ne uretildigini "
+                 "degil), o yuzden katkisinin toplanmasi en olasi olan bu.",
+        "egitim": ["--kayip-uzayi", "parametre", "--omurga-onegitimli",
+                   "--ara-kayit", "50"],
+        "mimari": ["--donme-temsili", "6b"],
+    },
     "L_plato": {
         "hat": "L",
         "baslik": "Dogrulama duzelmeyince ogrenme hizi yariya iner",
@@ -234,7 +296,7 @@ def deneyi_kos(ad: str, a) -> dict:
     # yontem deneylerinin hepsi AYNI bolmeyi paylasmak zorunda, yoksa
     # karsilastirma anlamini yitirir.
     bolme = KOK / d["bolme"] if "bolme" in d else a.bolme
-    dizin = KOK / "results" / "faz4" / ad
+    dizin = a.kok / ad
     dizin.mkdir(parents=True, exist_ok=True)
     gunluk = dizin / "gunluk.txt"
     bas = time.time()
@@ -291,6 +353,12 @@ def main() -> int:
     ap.add_argument("--liste", action="store_true", help="deneyleri yazdir, cik")
     ap.add_argument("--veri", type=Path, default=Path("D:/SerbestEl-veri/tusrec2024/acilmis"))
     ap.add_argument("--bolme", type=Path, default=KOK / "configs" / "bolme.json")
+    ap.add_argument("--kok", type=Path, default=KOK / "results" / "faz4",
+                    metavar="DIZIN",
+                    help="sonuclarin yazilacagi kok. Faz 5 ablasyon merdiveni "
+                         "results/faz5 altina yaziliyor ki Faz 4'un tek "
+                         "degiskenli deneyleriyle karismasin — iki tablonun "
+                         "butceleri farkli, yan yana okunurlarsa yaniltir")
     ap.add_argument("--sure", type=float, default=60.0, metavar="DAKIKA",
                     help="deney basina egitim butcesi — HEPSINDE AYNI olmali")
     ap.add_argument("--isci", type=int, default=6)
@@ -324,7 +392,7 @@ def main() -> int:
         for ad in a.deneyler:
             d = DENEYLER[ad]
             bolme = KOK / d["bolme"] if "bolme" in d else a.bolme
-            dizin = KOK / "results" / "faz4" / ad
+            dizin = a.kok / ad
             kos(f"{ad} — TEST kumesi, 240 tarama", [
                 PYTHON, "-u", "src/olcum.py",
                 "--veri", str(a.veri), "--bolme", str(bolme),

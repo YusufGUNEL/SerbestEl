@@ -590,6 +590,168 @@ hızını belirleyen şey birim değil, bileşenler arası ağırlık dağılım
    mi olduğu bilinmiyor. `C_parametre`'nin 129 epokta `r` = 0,183'e ulaşması,
    onun geçişe **daha erken** girdiğini düşündürüyor.
 
+## Faz 5 — ablasyon ve dürüst rapor
+
+Yol haritası bu fazdan üç şey istiyor: her fikrin katkısını **kümülatif** olarak
+ölçen bir tablo, çalışmayanların gerekçeli listesi, ve yayınlanmış sonuçlara
+göre konum.
+
+```bash
+python scripts/faz4_deney.py A1_referans A2_C A3_CB A4_CBG \
+    --sure 180 --kok results/faz5
+python scripts/faz4_tablo.py --kok results/faz5
+```
+
+### Neden ablasyon 60 dakikada yapılamazdı
+
+Faz 4'ün ana bulgusu bu fazın tasarımını belirledi: çöküş kademeli bitmiyor,
+epok 200–250 arasında bir **faz geçişiyle** bitiyor, ve 60 dakikalık bütçe
+epok ~115'te — geçişin yarısında — bitiyor.
+
+Bunun doğrudan sonucu: **çöküş havuzunun içinde yapılan bir ablasyon hiçbir
+şey ölçmez.** Her satır, fikrin katkısını değil havuzun derinliğini raporlar.
+Faz 4'ün tablosu tam olarak bunu yaşadı — beş bağımsız eksen aynı küçük
+kazancı verdi ve katkılar toplanmadı.
+
+Bu yüzden merdivenin dört satırı da **180 dakika** ile koştu: en yavaş
+yapılandırmada bile ~300 epok, yani bütün satırlar geçişin ötesinde. Faz 4'ün
+60 dakikalık tablosuyla yan yana okunmamalı; bu yüzden ayrı dizinde
+(`results/faz5/`) duruyor.
+
+### Kümülatif merdiven — hangi fikir kaç puan getirdi
+
+Basamak sırası Faz 4'ün eşit bütçeli sonuçlarına göre büyükten küçüğe:
+C (%37,8) → B (%6,2) → G (%5,7).
+
+| Satır | Eklenen | GP | GL | LP | LL | GP/LP | \|r\| | Epok | Bir önceki satıra göre GP |
+|---|---|---|---|---|---|---|---|---|---|
+| `A1_referans` | — (referansın ayarları) | 93,182 | 93,984 | 0,4007 | 0,4128 | 233× | **0,031** | 360 | (çıpa) |
+| `A2_C` | parametre uzayında kayıp | 28,928 | 27,830 | 0,2106 | 0,2029 | 137× | **0,371** | 332 | **%−69,0** |
+| `A3_CB` | + 6B sürekli dönme temsili | 21,984 | 20,353 | 0,1953 | 0,1868 | 113× | 0,366 | 322 | %−24,0 |
+| `A4_CBG` | + ImageNet omurga | **20,909** | **18,894** | **0,1888** | **0,1681** | **111×** | **0,522** | 412 | %−4,9 |
+
+Toplam: GP 93,18 → 20,91 (**%−77,6**), doğrulama kümesi, dördü de 180 dakika.
+
+**Katkılar azalan sırada ve üst üste biniyor.** Kayıp uzayı tek başına
+mesafenin %69'unu kapatıyor; 6B temsili kalanın dörtte birini; ImageNet
+omurga son %5'i. Üçü de aynı yöne — dönmenin daha iyi öğrenilmesine —
+çalıştığı için azalan getiri beklenen davranış, ve ölçüldü.
+
+### Merdivenin ilk satırı Faz 4'ün sonucunu düzeltti
+
+`A1_referans` 180 dakikada **360 epok** koştu — `U_uzun`'un faz geçişini
+yaptığı epok 200–250 aralığının çok ötesi — ve **hâlâ çökmüş**: `|r|` 0,031,
+yani Faz 4'teki 60 dakikalık `taban` koşumunun (0,035) aynısı.
+
+Faz 4 "çöküşü bütçe kırıyor" demişti. Doğrusu daha keskin:
+
+> **Geçiş hem yeterli bütçe hem doğru yapılandırma istiyor. Referansın kendi
+> ayarları, kendilerine üç kat bütçe verilse bile çöküşten çıkmıyor.**
+
+`U_uzun`'un çıkabilmesinin sebebi bütçe değil, 6B + ImageNet birleşimiydi;
+bütçe yalnızca çıkışın *görülebilmesi* için gerekiyordu. Ve `A2_C`, başka
+hiçbir şeyi değiştirmeden, sadece kayıp uzayıyla aynı çıkışı üç saatte
+yapıyor.
+
+### Neden bu tablo Faz 4'ünkinden farklı sonuç veriyor
+
+Aynı fikirler, iki farklı bütçede ölçüldüğünde:
+
+| Fikir | Faz 4 (60 dk, havuzun içinde) | Faz 5 (180 dk, geçişin ötesinde) |
+|---|---|---|
+| Parametre kaybı (C) | %−37,8 | **%−69,0** |
+| 6B temsil (B) | %−6,2 | **%−24,0** |
+| ImageNet (G) | %−5,7 | %−4,9 |
+
+C ve B'nin gerçek katkısı, kısa bütçede olduğundan **iki-dört kat** büyük.
+Sebebi Faz 4'ün faz geçişi bulgusu: 60 dakikalık ölçüm çöküş havuzunun
+içinde yapılıyordu ve orada her satır fikrin katkısını değil havuzun
+derinliğini raporluyordu.
+
+**Bu, Faz 5'in kendi başına bir bulgusu:** yanlış bütçede yapılan bir
+ablasyon, fikirlerin gerçek katkısını gizler — ve bunu iddia olarak değil,
+aynı üç fikrin iki bütçedeki ölçümüyle gösteriyoruz. G'nin katkısının
+değişmemesi de tutarlı: o, diğer ikisinden farklı bir şeyi (nereden
+başlandığını) değiştiriyor.
+
+### Eldeki en iyi model hâlâ `U_uzun`
+
+Merdiven 180 dakikayla sınırlı; `U_uzun` 480 dakika koştu ve doğrulamada
+GP 15,38 ile `A4_CBG`'nin 20,91'inin altında. İkisi farklı bütçede olduğu
+için merdiven satırı olarak yan yana konamaz.
+
+Açık kalan tek kutu da burada: **parametre kaybı + uzun bütçe birlikte
+denenmedi.** `U_uzun` nokta tabanlı kayıpla koştu; merdiven kayıp uzayının
+tek başına %69 getirdiğini gösterdi. İkisinin bileşimi bu donanımda
+ulaşılabilecek en iyi sonuç olmaya aday ve tek bir sekiz saatlik koşum
+mesafesinde.
+
+### Çalışmayanlar — ve neden çalışmadıkları
+
+Negatif sonuç da sonuçtur. Dokuz Faz 4 deneyinin dördü hiçbir şey getirmedi
+ya da zarar verdi; hepsinin gerekçesi ölçüldü.
+
+| Fikir | Sonuç | Neden |
+|---|---|---|
+| **Öğrenme oranı planı** (`L_plato`) | Dört ölçüde de tabanla **ondalığına kadar aynı** | `lr` 60 dakika boyunca `1,00e-04`'te kaldı: plato tetikleyicisi **bir kez bile** devreye girmedi, doğrulama hep azıcık iyileşip sabrı tüketmedi. Faz 3'ün "çöküşten çıkmak için lr azalt" önerisi, azaltılacak bir plato olmadığı için boşa çıktı |
+| **Tutarlılık kısıtı** (`D_tutarlilik`) | Tablonun en kötüsü, GP %−33,9 | Sayı fikri değil **uygulamayı** yargılıyor: 60 dakikada sadece 13 epok (taban 108). Tahmin edilen bedel ~2 kat, ölçülen ~8 kat. Kısıtın matematiği `tests/test_temsil.py` T6'da doğru çalıştığı kanıtlı — adil sınanmadı |
+| **Uzun zamansal bağlam** (`A_baglam`) | Yerelde en iyi (LP 0,3988), küresel kazanç en düşük (%2,4) | GP/LP oranı tabandan **kötü** (230× vs 227×). Kare başına tahmini iyileştirdi, sürüklenmeyi iyileştirmedi — Faz 1'in bulgusunun tekrarı: sürüklenmeyi hatanın büyüklüğü değil **yanlılığı** belirliyor |
+| **Global sürüklenme düzeltmesi** (Faz 3) | İki modelde de zarar (+%1 ve +%2) | Yanlılık gerçek ve büyük ama **taramaya özgü**. Kehanet sürümü GP'nin %83'ünü siliyor, dürüst sürüm kaybettiriyor. Tek bir sabit düzeltmeyle giderilemez |
+| **Veri yoğunlaştırma** (`S_ezber`, tanı) | Bağdaşım yine kıpırdamadı (\|r\| 0,066) | 24 taramada 2400 epok, kendi eğittiği denekte ölçüm. GP'deki 94→75 iyileşmesi öğrenmeden değil, tek deneğe daralınca yanlılığın küçülmesinden — **yerel doğruluğun kötüleşmesi** (0,413→0,496) bunu ele veriyor |
+
+Ayrıca **beklentiyi tersine çeviren** bir sonuç: `C_parametre` negatif kontrol
+olarak konmuştu (yol haritası "kaybı nokta tabanlı yap" diyor, referans kaybı
+zaten öyleydi, kaldırınca ne kaybedildiği ölçülecekti). Kaybedilmedi —
+parametre uzayında kayıp eşit bütçedeki **en iyi** sonuç oldu. Ayrıntı:
+"Beklentiyi tersine çeviren: C hattı" bölümü.
+
+### Yayınlanmış sonuçlara göre konum
+
+TUS-REC2024'ün resmî liderlik tablosu (yarışmanın kendi kapalı test kümesi):
+
+| Sıra | Takım | GPE | GLE | LPE | LLE | Skor |
+|---|---|---|---|---|---|---|
+| 1 | ImFusion | 9,249 | 6,986 | 0,153 | 0,120 | 0,622 |
+| 2 | MUSIC Lab | 9,851 | 8,116 | **0,138** | **0,116** | 0,620 |
+| 3 | COCHE | 13,892 | 10,705 | 0,172 | 0,143 | 0,503 |
+| 4 | AGH-MedApp | 18,605 | 15,955 | 0,179 | 0,153 | 0,383 |
+| 5 | AMI-Lab | 21,800 | 19,645 | 0,177 | 0,157 | 0,301 |
+| 6 | QBME | 25,708 | 21,728 | 0,216 | 0,183 | 0,188 |
+| 7 | **Yarışmanın kendi referansı** | 26,110 | 23,681 | 0,214 | 0,181 | 0,163 |
+
+Bizim sayılarımız (kendi ayırdığımız 10 denek, 240 tarama):
+
+| | GP | GL | LP | LL |
+|---|---|---|---|---|
+| Faz 2 — referansın yeniden üretimi (178 epok) | 86,90 | 83,65 | 0,3856 | 0,3850 |
+| **Faz 4 — `U_uzun` (912 epok)** | **17,25** | **16,35** | **0,1565** | **0,1372** |
+
+**Bu bir sıralama değil — test kümeleri farklı.** Liderlik tablosu yarışmanın
+kapalı test kümesinde (85 deneklik kohortun ayrılmış kısmı), bizimki kendi
+denek bazlı bölmemizde (açık eğitim verisinden ayrılan 10 denek) ölçüldü.
+Aynı protokol ve aynı cihaz, ama aynı kümede değil. Sayılar **gösterge**,
+sıralama değil.
+
+Bu kaydıyla okunduğunda:
+
+- **Yerel doğruluk üst sıralarla yarışıyor.** LP 0,1565 ve LL 0,1372;
+  3.–7. sıradaki bütün takımlardan iyi, 1. ve 2. sıranın (0,153/0,120 ve
+  0,138/0,116) hemen yanında.
+- **Küresel doğruluk 4. sıra bandında.** GP 17,25 ve GL 16,35, COCHE (13,9)
+  ile AGH-MedApp (18,6) arasında.
+- **Yarışmanın kendi referansı geçildi** — dört ölçünün dördünde de
+  (26,11 → 17,25; 23,68 → 16,35; 0,214 → 0,157; 0,181 → 0,137). Bu referans
+  20.000 epokluk bütçeyle eğitilmişti; bizimki 912 epok, tek bir 4 GB
+  dizüstü ekran kartında sekiz saat.
+
+Bu son satır Faz 4'ün bulgusunun pratik karşılığı: kazancı getiren şey yeni
+bir mimari değil, **çöküş havuzundan çıkmaya yetecek kadar bütçe** — ve
+çıkıldıktan sonra referansın kendi mimarisi, referansın kendi skorunun
+belirgin biçimde üstüne çıkıyor.
+
+Kaynak: [TUS-REC2024 liderlik tablosu](https://github.com/UCL/tus-rec-challenge/blob/main/leaderboard.md),
+[yarışma raporu (arXiv:2506.21765)](https://arxiv.org/abs/2506.21765).
+
 ## Donanım
 
 RTX 3050 Ti Laptop (4 GiB) + 64 GiB RAM. Referans README'nin andığı 30 GB GPU

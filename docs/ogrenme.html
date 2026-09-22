@@ -148,6 +148,8 @@
     <li><a href="#k24">Adil deney: tek değişken, eşit bütçe, eşit başlangıç</a></li>
     <li><a href="#k25">Yalancı plato: çöküşten çıkış ölçekle geldi</a></li>
     <li><a href="#k26">Kayıp hangi bileşeni önemsiyor — ve negatif kontrolün kazanması</a></li>
+    <li><a href="#k27">Ablasyon tablosu: kümülatif merdiven ve doğru bütçe</a></li>
+    <li><a href="#k28">Yayınlanmış sonuçlarla dürüst karşılaştırma</a></li>
     <li class="bek">Faz ilerledikçe eklenecek…</li>
   </ol>
 </div>
@@ -1251,6 +1253,102 @@ model.load_state_dict(torch.load(
         <li>Çok bileşenli kayıplarda asıl soru birim değil, <b>bileşenler arası ağırlık dağılımı</b>.</li>
       </ul>
     </div>
+  </div>
+</div>
+
+<!-- ============ KONU 27 ============ -->
+<div class="konu" id="k27">
+  <div class="kbas"><span class="kno">27</span><h2>Ablasyon tablosu: kümülatif merdiven ve doğru bütçe</h2><span class="kfaz">Faz 5</span></div>
+  <div class="kgov">
+    <p>"Skorum şu" demek kolay. "Şu fikir şu kadar getirdi, şu hiçbir şey getirmedi" demek mühendis olduğunu gösterir. Ablasyon tablosu bunun aracı — ama yanlış kurulursa tam tersini yapar: fikirlerin gerçek katkısını <b>gizler</b>. Bu konu, o tuzağı ölçülmüş haliyle anlatıyor.</p>
+
+    <div class="blok">
+      <h4>Tek değişkenli tablo ile kümülatif merdiven aynı şey değil</h4>
+      <p>Faz 4'te her deney <b>tabandan</b> ayrılıyordu: "sadece bunu değiştirsem ne olur". Faz 5'te merdiven <b>üst üste</b> biniyor: referans → +C → +C+B → +C+B+G.</p>
+      <p>İkisi farklı soru soruyor. Birincisi bir fikrin yalnız başına değerini, ikincisi <b>öncekilerin üstüne ne eklediğini</b> ölçer. Faz 4'te ölçüldü ki bu ikisi çakışmıyor: B tek başına %6,2, G tek başına %5,7, ama ikisi birlikte %11,9 değil %7,6 — yani katkılar bağımsız değil.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">Çöküş havuzunun içinde yapılan ablasyon hiçbir şey ölçmez</span>
+      Konu 25'te ölçüldü: model çıkışı bir faz geçişiyle yapıyor. Geçişten önce ağ ortalamayı söylüyor; o bölgede hangi fikir denenirse denensin, tablodaki sayı fikrin katkısını değil <b>havuzun derinliğini</b> raporlar.
+      <p style="margin-top:7px">Kanıtı, aynı üç fikrin iki farklı bütçede ölçülmesi:</p>
+      <div class="tbl" style="margin-top:8px"><table>
+        <thead><tr><th>Fikir</th><th>60 dk (havuzun içinde)</th><th>180 dk (geçişin ötesinde)</th></tr></thead>
+        <tbody>
+          <tr><td>Parametre uzayında kayıp</td><td>%−37,8</td><td><b class="sec">%−69,0</b></td></tr>
+          <tr><td>6B dönme temsili</td><td>%−6,2</td><td><b class="sec">%−24,0</b></td></tr>
+          <tr><td>ImageNet omurga</td><td>%−5,7</td><td>%−4,9</td></tr>
+        </tbody>
+      </table></div>
+      İlk iki fikrin gerçek katkısı, kısa bütçede olduğundan <b>iki–dört kat</b> büyük. Üçüncüsünün değişmemesi de tutarlı: o, diğerlerinden farklı bir şeyi — nereden başlandığını — değiştiriyor.</div>
+
+    <div class="blok">
+      <h4>Ölçülen merdiven</h4>
+      <p>Dört satır da 180 dakika, doğrulama kümesi:</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Satır</th><th>Eklenen</th><th>GP (mm)</th><th>|r|</th><th>Epok</th><th>Önceki satıra göre</th></tr></thead>
+      <tbody>
+        <tr><td>A1</td><td>— (referansın ayarları)</td><td>93,18</td><td><b class="ele">0,031</b></td><td>360</td><td>(çıpa)</td></tr>
+        <tr><td>A2</td><td>parametre uzayında kayıp</td><td>28,93</td><td><b class="sec">0,371</b></td><td>332</td><td><b class="sec">%−69,0</b></td></tr>
+        <tr><td>A3</td><td>+ 6B dönme temsili</td><td>21,98</td><td>0,366</td><td>322</td><td>%−24,0</td></tr>
+        <tr><td>A4</td><td>+ ImageNet omurga</td><td><b class="sec">20,91</b></td><td><b class="sec">0,522</b></td><td>412</td><td>%−4,9</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="kutu"><span class="kt">İlk satır, bir önceki fazın sonucunu düzeltti</span>
+      <code>A1</code> 360 epok koştu — çıkışın gerçekleştiği epok 200–250 aralığının çok ötesi — ve <b>hâlâ çökmüş</b>. Faz 4 "çöküşü bütçe kırıyor" demişti; doğrusu daha keskin: <b>geçiş hem yeterli bütçe hem doğru yapılandırma istiyor.</b> Referansın kendi ayarları, üç kat bütçeyle bile çıkmıyor. Bütçe çıkışı sağlamıyor, yalnızca çıkışın <i>görülebilmesini</i> sağlıyor.</div>
+
+    <div class="blok">
+      <h4>Alınacak dersler</h4>
+      <ul>
+        <li>Ablasyona başlamadan önce sor: <b>her satır rejim değişiminin doğru tarafında mı?</b> Değilse tablo bütün fikirleri eşit derecede işe yaramaz gösterir.</li>
+        <li>Azalan getiri beklenen davranıştır ve <b>ölçülmelidir</b>: üç fikir de aynı sorunu (dönmenin kötü öğrenilmesini) hedeflediği için üst üste binmeleri doğaldır.</li>
+        <li>Kümülatif sırayı <b>büyükten küçüğe</b> kur. Böylece her basamak bir öncekinin üstüne ne kattığını gösterir ve doygunluk görünür.</li>
+        <li>Merdivenin satırları <b>aynı bütçeyi</b> paylaşmalı; farklı bütçedeki bir koşum (bizde <code>U_uzun</code>) tabloya satır olarak konmaz, ayrıca raporlanır.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ KONU 28 ============ -->
+<div class="konu" id="k28">
+  <div class="kbas"><span class="kno">28</span><h2>Yayınlanmış sonuçlarla dürüst karşılaştırma</h2><span class="kfaz">Faz 5</span></div>
+  <div class="kgov">
+    <p>Projenin sonunda kaçınılmaz soru geliyor: "peki bu iyi mi?" Cevap ancak bir kıyas noktasıyla verilebilir — ve kıyas noktasını yanlış kullanmak, hiç kullanmamaktan daha kötüdür.</p>
+
+    <div class="blok">
+      <h4>Resmî liderlik tablosu</h4>
+      <p>TUS-REC2024, yarışmanın kendi kapalı test kümesinde:</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Sıra</th><th>Takım</th><th>GPE</th><th>GLE</th><th>LPE</th><th>LLE</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>ImFusion</td><td>9,25</td><td>6,99</td><td>0,153</td><td>0,120</td></tr>
+        <tr><td>2</td><td>MUSIC Lab</td><td>9,85</td><td>8,12</td><td><b>0,138</b></td><td><b>0,116</b></td></tr>
+        <tr><td>3</td><td>COCHE</td><td>13,89</td><td>10,71</td><td>0,172</td><td>0,143</td></tr>
+        <tr><td>4</td><td>AGH-MedApp</td><td>18,61</td><td>15,96</td><td>0,179</td><td>0,153</td></tr>
+        <tr><td>7</td><td><b>Yarışmanın kendi referansı</b></td><td>26,11</td><td>23,68</td><td>0,214</td><td>0,181</td></tr>
+        <tr><td>—</td><td><b>Bizim <code>U_uzun</code></b></td><td><b class="sec">17,25</b></td><td><b class="sec">16,35</b></td><td><b class="sec">0,157</b></td><td><b class="sec">0,137</b></td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="tuzak"><span class="kt">Bu bir sıralama DEĞİL — test kümeleri farklı</span>
+      Liderlik tablosu yarışmanın kapalı test kümesinde (85 deneklik kohortun ayrılmış kısmı), bizimki kendi denek bazlı bölmemizde (açık eğitim verisinden ayırdığımız 10 denek) ölçüldü. Aynı protokol, aynı cihaz, <b>ama aynı küme değil</b>.
+      <p style="margin-top:7px">Son satırı tabloya koyup "4. sıradayız" demek yanlış olurdu. Doğru cümle: "sayılar gösterge niteliğinde, sıralama değil". Bir kıyası kullanırken onun <b>hangi soruya cevap vermediğini</b> de söylemek zorundasın.</p></div>
+
+    <div class="blok">
+      <h4>Bu kaydıyla ne söylenebilir</h4>
+      <ul>
+        <li><b>Yerel doğruluk üst sıralarla yarışıyor.</b> LP 0,157 ve LL 0,137; 3.–7. sıradaki bütün takımlardan iyi.</li>
+        <li><b>Küresel doğruluk 4. sıra bandında.</b> GP 17,25, COCHE (13,9) ile AGH-MedApp (18,6) arasında.</li>
+        <li><b>Yarışmanın kendi referansı dört ölçüde de geçildi</b> — ve o referans 20.000 epokluk bütçeyle eğitilmişti; bizimki 4 GB'lık bir dizüstü ekran kartında sekiz saat, 912 epok.</li>
+      </ul>
+    </div>
+
+    <div class="kutu"><span class="kt">Neden bu üçüncü madde en değerlisi</span>
+      İlk iki madde "biz iyiyiz" demeye yakın. Üçüncüsü farklı bir şey söylüyor: kazancı getiren şey yeni bir mimari değil, referansın <b>kendi</b> mimarisinin çöküş havuzundan çıkarılmasıydı. Aynı ağ, aynı veri, aynı kayıp ailesi — değişen tek şey hangi uzayda ölçüldüğü ve ne kadar eğitildiği. Bu, bir skordan daha öğretici bir sonuçtur.</div>
   </div>
 </div>
 
