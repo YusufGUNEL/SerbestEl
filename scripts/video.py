@@ -263,8 +263,8 @@ def main() -> int:
         R = kam_k.dondur(az, EL0)
         aralik = derinlik_araligi(kam_k, R)
         for sira, (nok, kose, renk, ad) in enumerate(
-                [(t_nok, t_kose, TAHMIN, "tahmin — yalnızca görüntüden"),
-                 (g_nok, g_kose, GERCEK, "gerçek — optik izleyici")]):
+                [(t_nok, t_kose, TAHMIN, "prediction — from images only"),
+                 (g_nok, g_kose, GERCEK, "ground truth — optical tracker")]):
             m = MIP(BOY_K, aralik)
             s = nok[::2].reshape(-1, 3)
             u, v, dd = kam_k.izdusur(s, R)
@@ -285,7 +285,7 @@ def main() -> int:
             im.paste(hac, (x0, 70))
             ImageDraw.Draw(im).text((x0 + 8, 36), ad, fill=renk, font=orta)
         ImageDraw.Draw(im).text(
-            (20, YUK - 30), f"{kimlik}  ·  {n} kare  ·  ortalama piksel hatası {gp_mm:.1f} mm",
+            (20, YUK - 30), f"test scan {kimlik}  ·  {n} frames  ·  mean pixel error {gp_mm:.1f} mm",
             fill=SOLUK, font=kucuk)
         return im
 

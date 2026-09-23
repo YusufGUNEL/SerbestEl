@@ -32,3 +32,7 @@ __pycache__/
 .idea/
 Thumbs.db
 desktop.ini
+
+# --- yazarin kendi planlari: depoya girmez ---
+docs/index.html
+docs/yol-haritasi.html
