@@ -245,6 +245,23 @@ DENEYLER: dict[str, dict] = {
                    "--ara-kayit", "50"],
         "mimari": ["--donme-temsili", "6b"],
     },
+    # FAZ 7 — uzun kare dizisi. A_baglam (5 kare) Faz 4'te yalniz 60 dakika
+    # kostu, yani cokus havuzunun icinde olculdu: fikir adil sinanmadi.
+    # Burada en iyi yapilandirmanin ustune, faz gecisinin otesinde deneniyor.
+    # U_uzun_C'den tek farki baglam uzunlugu.
+    "U_uzun_CA": {
+        "hat": "olcek+C+A",
+        "baslik": "U_uzun_C + 5 karelik baglam",
+        "neden": "TUS-REC'in ilk iki sirasi (GP 9-10 mm) uzun kare dizisine "
+                 "bakan modellerle o farki kapatiyor. Bizim tek 5 kare denememiz "
+                 "(A_baglam) 60 dakikada, cokusun icinde olculdu: yerelde en "
+                 "iyi, kuresele tasiyamadi — ama o butcede hicbir fikir "
+                 "kuresele tasiyamiyordu. Epok maliyeti tabanla ayni (113 vs "
+                 "108 epok / 60 dk), yani ayni 480 dakika adil bir kiyas.",
+        "egitim": ["--kayip-uzayi", "parametre", "--omurga-onegitimli",
+                   "--ara-kayit", "50", "--sample-range", "5"],
+        "mimari": ["--donme-temsili", "6b", "--num-samples", "5", "--num-pred", "4"],
+    },
     "L_plato": {
         "hat": "L",
         "baslik": "Dogrulama duzelmeyince ogrenme hizi yariya iner",

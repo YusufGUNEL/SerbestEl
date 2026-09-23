@@ -774,6 +774,7 @@ ya da zarar verdi; hepsinin gerekçesi ölçüldü.
 | **Uzun zamansal bağlam** (`A_baglam`) | Yerelde en iyi (LP 0,3988), küresel kazanç en düşük (%2,4) | GP/LP oranı tabandan **kötü** (230× vs 227×). Kare başına tahmini iyileştirdi, sürüklenmeyi iyileştirmedi — Faz 1'in bulgusunun tekrarı: sürüklenmeyi hatanın büyüklüğü değil **yanlılığı** belirliyor |
 | **Global sürüklenme düzeltmesi** (Faz 3) | İki modelde de zarar (+%1 ve +%2) | Yanlılık gerçek ve büyük ama **taramaya özgü**. Kehanet sürümü GP'nin %83'ünü siliyor, dürüst sürüm kaybettiriyor. Tek bir sabit düzeltmeyle giderilemez |
 | **Veri yoğunlaştırma** (`S_ezber`, tanı) | Bağdaşım yine kıpırdamadı (\|r\| 0,066) | 24 taramada 2400 epok, kendi eğittiği denekte ölçüm. GP'deki 94→75 iyileşmesi öğrenmeden değil, tek deneğe daralınca yanlılığın küçülmesinden — **yerel doğruluğun kötüleşmesi** (0,413→0,496) bunu ele veriyor |
+| **En iyi modelin üstüne 5 karelik bağlam** (`U_uzun_CA`, 8 sa) | GP 26,35 / 14,43, LP 0,196 / 0,173 (doğrulama) | Dört ölçüde de kötü, GP/LP 134× / 84×. Bu kez bütçe değil: 1122 epok, faz geçişinin ötesinde, \|r\| 0,51. Sınanmamış hipotez: kayıpta 10 kare çifti var ve parametre kaybını aralıklı çiftler domine ediyor, ölçüm ise yalnız komşu çiftleri zincirliyor |
 
 Ayrıca **beklentiyi tersine çeviren** bir sonuç: `C_parametre` negatif kontrol
 olarak konmuştu (yol haritası "kaybı nokta tabanlı yap" diyor, referans kaybı
