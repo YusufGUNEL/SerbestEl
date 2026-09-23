@@ -17,8 +17,10 @@ IKI YERDE REFERANSTAN AYRILIYORUZ — MATEMATIK AYNI KALARAK
    bakiyor. Sirali olan tek sey biriktirme, o da sadece matris carpimi.
    Bu yuzden butun pencereleri yiginlayip bir kerede geciriyoruz. Ayni sayilar,
    cok daha hizli.
-   NOT: NUM_SAMPLES>2 icin referans son karelerin donusumunu uretmiyor ve
-   bosluklari dolduruyor; o davranis burada da birebir korundu.
+   NOT: NUM_SAMPLES>2 icin her pencereden yalniz ilk cift aliniyor, bu da
+   taramanin son NUM_SAMPLES-2 adimini bos (birim) birakiyordu. Faz 7'den
+   beri o adimlar son pencerenin yan yana ciftlerinden dolduruluyor;
+   NUM_SAMPLES=2 icin hicbir sey degismiyor.
 
 2) DDF'LERI HIC KURMADAN OLCMEK
    Referans dort DDF'yi bellekte kuruyor. Bir tarama icin
@@ -63,9 +65,9 @@ from utils.funs import pair_samples  # noqa: E402
 from utils.plot_functions import reference_image_points  # noqa: E402
 
 
-def model_yukle(agirlik: Path, aygit, num_samples=2, num_pred=1,
+def model_yukle(agirlik: Path, aygit, num_samples=2, num_pred=1, tek_aralik=0,
                 donme_temsili="euler", model_name="efficientnet_b1"):
-    ciftler = pair_samples(num_samples, num_pred, 0)
+    ciftler = pair_samples(num_samples, num_pred, tek_aralik)
     pred_dim = cikti_boyutu(donme_temsili, ciftler.shape[0])
     # ImageNet agirligi burada gereksiz: hemen uzerine egitilmis agirlik biniyor
     model = omurga_kur(model_name, in_frames=num_samples, pred_dim=pred_dim).to(aygit)
@@ -101,9 +103,24 @@ def yerel_tahmin(model, kareler: np.ndarray, kalib: Kalibrasyon, ciftler,
         x = torch.from_numpy(pencere).to(aygit).float() / 255
         with torch.cuda.amp.autocast(enabled=amp and aygit.type == "cuda"):
             cikti = model(x)
-        T = donusum(cikti.float())[:, 0, ...].cpu()   # ilk cift, referansla ayni
+        T_hepsi = donusum(cikti.float()).cpu()
+        T = T_hepsi[:, 0, ...]                        # ilk cift, referansla ayni
         for k, i in enumerate(kume):
             yerel[i] = T[k]
+
+    # num_samples > 2 iken son pencere taramanin son num_samples-2 adimini
+    # kapsiyor ama yukarida yalniz ilk cifti yaziliyordu: o adimlar birim
+    # (hareket yok) kaliyordu. Son pencerenin yan yana ciftleri varsa onlar
+    # kullaniliyor. num_samples == 2 iken butun adimlar zaten kapsaniyor,
+    # yani Faz 2-6 sayilari degismiyor.
+    son = basliklar[-1]
+    if son + 1 < n - 1:
+        pencere = torch.from_numpy(kareler[son:son + num_samples][None]).to(aygit).float() / 255
+        with torch.cuda.amp.autocast(enabled=amp and aygit.type == "cuda"):
+            T_son = donusum(model(pencere).float())[0].cpu()
+        for c, (p0, p1) in enumerate(ciftler.tolist()):
+            if p1 == p0 + 1 and p0 >= 1:              # yerel[son] zaten yazildi
+                yerel[son + p0] = T_son[c]
     return yerel
 
 
@@ -202,6 +219,11 @@ def main() -> int:
     # --- kosumun mimarisi: egitimdeki degerlerle AYNI verilmeli ---
     ap.add_argument("--num-samples", type=int, default=2)
     ap.add_argument("--num-pred", type=int, default=1)
+    ap.add_argument("--tek-aralik", type=int, default=0, metavar="K",
+                    help="referansin single_interval'i. 0 (referans): son num_pred "
+                         "kare onceki HER kareyle eslenir; K>0: yalniz K aralikli "
+                         "ciftler (5 kare, K=1 -> yan yana 4 cift). Mimariyi "
+                         "degistirir, olcumde de ayni verilmeli")
     ap.add_argument("--donme-temsili", default="euler",
                     choices=["euler", "6b", "kuaterniyon", "matris"])
     ap.add_argument("--tarama-basina", type=int, default=None, metavar="N",
@@ -215,7 +237,7 @@ def main() -> int:
     aygit = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     kalib = Kalibrasyon.csvden(a.veri / "calib_matrix.csv")
     model, ciftler, _ = model_yukle(a.agirlik, aygit, num_samples=a.num_samples,
-                                    num_pred=a.num_pred,
+                                    num_pred=a.num_pred, tek_aralik=a.tek_aralik,
                                     donme_temsili=a.donme_temsili)
     bolme = bolme_yukle(a.bolme)
     denekler = bolme.denek_kumesi(a.kume)

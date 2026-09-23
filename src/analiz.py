@@ -502,6 +502,11 @@ def main() -> int:
                     help="yalnizca ilk N test taramasi (hizli deneme)")
     ap.add_argument("--num-samples", type=int, default=2)
     ap.add_argument("--num-pred", type=int, default=1)
+    ap.add_argument("--tek-aralik", type=int, default=0, metavar="K",
+                    help="referansin single_interval'i. 0 (referans): son num_pred "
+                         "kare onceki HER kareyle eslenir; K>0: yalniz K aralikli "
+                         "ciftler (5 kare, K=1 -> yan yana 4 cift). Mimariyi "
+                         "degistirir, olcumde de ayni verilmeli")
     ap.add_argument("--donme-temsili", default="euler",
                     choices=["euler", "6b", "kuaterniyon", "matris"])
     ap.add_argument("--gorsel", type=int, default=10, metavar="N",
@@ -514,7 +519,7 @@ def main() -> int:
     kalib = Kalibrasyon.csvden(a.veri / "calib_matrix.csv")
     MIMARI.update(num_samples=a.num_samples, donme_temsili=a.donme_temsili)
     model, ciftler, _ = model_yukle(a.agirlik, aygit, num_samples=a.num_samples,
-                                    num_pred=a.num_pred,
+                                    num_pred=a.num_pred, tek_aralik=a.tek_aralik,
                                     donme_temsili=a.donme_temsili)
     bolme = bolme_yukle(a.bolme)
     yogunluk = tuple(a.yogunluk)

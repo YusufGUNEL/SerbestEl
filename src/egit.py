@@ -142,6 +142,11 @@ def main() -> int:
     ap.add_argument("--num-samples", type=int, default=2)
     ap.add_argument("--sample-range", type=int, default=2)
     ap.add_argument("--num-pred", type=int, default=1)
+    ap.add_argument("--tek-aralik", type=int, default=0, metavar="K",
+                    help="referansin single_interval'i. 0 (referans): son num_pred "
+                         "kare onceki HER kareyle eslenir; K>0: yalniz K aralikli "
+                         "ciftler (5 kare, K=1 -> yan yana 4 cift). Mimariyi "
+                         "degistirir, olcumde de ayni verilmeli")
     # --- Faz 4 degiskenleri: varsayilanlari Faz 2 kosumuyla BIREBIR ayni ---
     ap.add_argument("--donme-temsili", default="euler",
                     choices=["euler", "6b", "kuaterniyon", "matris"],
@@ -219,7 +224,7 @@ def main() -> int:
         dset_dogrulama, batch_size=1, shuffle=False, **ortak)
 
     # ---------------- donusumler (referanstan, degistirilmedi) ----------------
-    ciftler = pair_samples(a.num_samples, a.num_pred, 0).to(aygit)
+    ciftler = pair_samples(a.num_samples, a.num_pred, a.tek_aralik).to(aygit)
     olcek, rijit, tam = (t.to(aygit) for t in
                          read_calib_matrices(str(a.veri / "calib_matrix.csv")))
     ornek_kare = dset_egitim[0][0]

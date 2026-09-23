@@ -262,6 +262,37 @@ DENEYLER: dict[str, dict] = {
                    "--ara-kayit", "50", "--sample-range", "5"],
         "mimari": ["--donme-temsili", "6b", "--num-samples", "5", "--num-pred", "4"],
     },
+    # U_uzun_CA'nin negatif sonucundan dogan tek degiskenli takip. Referansin
+    # varsayilan eslemesi (single_interval=0) 5 karede 10 cift uretiyor ve
+    # bunlarin 6'si aralikli (0-2, 0-3, 0-4, ...). Olcum ise yalniz yan yana
+    # ciftleri zincirliyor. Burada ayni 5 kare, ama yalniz yan yana 4 cift.
+    "U_uzun_CA1": {
+        "hat": "olcek+C+A1",
+        "baslik": "U_uzun_CA, yalniz yan yana ciftler",
+        "neden": "U_uzun_CA dogrulamada GP 26,35 verdi (U_uzun_C 14,43). "
+                 "Hipotez: kayipta 10 cift var ve parametre kaybini aralikli "
+                 "ciftler domine ediyor, oysa zincirlenen yalniz komsu cift. "
+                 "Tek fark esleme: --tek-aralik 1 ile 5 karenin yan yana 4 "
+                 "cifti. Hipotez dogruysa baglam kazanca donmeli.",
+        "egitim": ["--kayip-uzayi", "parametre", "--omurga-onegitimli",
+                   "--ara-kayit", "50", "--sample-range", "5"],
+        "mimari": ["--donme-temsili", "6b", "--num-samples", "5", "--num-pred", "4",
+                   "--tek-aralik", "1"],
+    },
+    # Tohum tekrari: iyilestirme degil DOGRULAMA. Butun kosumlar tek tohumla
+    # (20260915) yapildi; README'nin bilinen sinirlari arasinda. Bolme ayni
+    # (configs/bolme.json), degisen yalniz agirlik baslangici ve ornekleme.
+    "U_uzun_C_t2": {
+        "hat": "tohum",
+        "baslik": "U_uzun_C, ikinci tohum",
+        "neden": "En iyi sonuc (test GP 14,40) tek kosumdan. Ayni yapilandirma "
+                 "baska tohumla: iki sayi arasindaki fark, tablolardaki kucuk "
+                 "farklarin (%4,9, U_uzun'a karsi %16,5) gercek mi gurultu mu "
+                 "oldugunu okumak icin gereken olcek.",
+        "egitim": ["--kayip-uzayi", "parametre", "--omurga-onegitimli",
+                   "--ara-kayit", "50", "--tohum", "2"],
+        "mimari": ["--donme-temsili", "6b"],
+    },
     "L_plato": {
         "hat": "L",
         "baslik": "Dogrulama duzelmeyince ogrenme hizi yariya iner",
