@@ -229,6 +229,22 @@ DENEYLER: dict[str, dict] = {
                    "--ara-kayit", "50"],
         "mimari": ["--donme-temsili", "6b"],
     },
+    # FAZ 6 — Faz 5'in acik biraktigi tek kutu. Merdiven, parametre
+    # kaybinin tek basina %69 getirdigini gosterdi; U_uzun ise nokta
+    # kaybiyla kosmustu. Bu kosum ikisini birlestiriyor. Tek degisken
+    # kuralina uyuyor: U_uzun'dan yalnizca kayip uzayi ile ayriliyor.
+    "U_uzun_C": {
+        "hat": "olcek+C",
+        "baslik": "U_uzun + parametre uzayinda kayip",
+        "neden": "Merdivenin tepesi (A4_CBG) U_uzun'un butcesiyle. U_uzun'dan "
+                 "tek farki kayip uzayi; merdiven o farkin 180 dakikada "
+                 "%69 oldugunu olctu. Soru: faz gecisinin otesinde, uzun "
+                 "butcede de kazanc duruyor mu, yoksa U_uzun zaten ayni "
+                 "yere mi vardi?",
+        "egitim": ["--kayip-uzayi", "parametre", "--omurga-onegitimli",
+                   "--ara-kayit", "50"],
+        "mimari": ["--donme-temsili", "6b"],
+    },
     "L_plato": {
         "hat": "L",
         "baslik": "Dogrulama duzelmeyince ogrenme hizi yariya iner",

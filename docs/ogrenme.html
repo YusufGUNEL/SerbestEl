@@ -150,6 +150,10 @@
     <li><a href="#k26">Kayıp hangi bileşeni önemsiyor — ve negatif kontrolün kazanması</a></li>
     <li><a href="#k27">Ablasyon tablosu: kümülatif merdiven ve doğru bütçe</a></li>
     <li><a href="#k28">Yayınlanmış sonuçlarla dürüst karşılaştırma</a></li>
+    <li><a href="#k29">Bilinen sınırlar: neyi çözmediğini yazmak</a></li>
+    <li><a href="#k30">Tek komutla yeniden üretim: kaldığı yerden süren zincir</a></li>
+    <li><a href="#k31">Tanıtım videosu: MIP ile hacim ve dürüst örnek seçimi</a></li>
+    <li><a href="#k32">Bir fikrin katkısı bütçeyle değişir: erken çıkış ve son nokta</a></li>
     <li class="bek">Faz ilerledikçe eklenecek…</li>
   </ol>
 </div>
@@ -1348,7 +1352,149 @@ model.load_state_dict(torch.load(
     </div>
 
     <div class="kutu"><span class="kt">Neden bu üçüncü madde en değerlisi</span>
-      İlk iki madde "biz iyiyiz" demeye yakın. Üçüncüsü farklı bir şey söylüyor: kazancı getiren şey yeni bir mimari değil, referansın <b>kendi</b> mimarisinin çöküş havuzundan çıkarılmasıydı. Aynı ağ, aynı veri, aynı kayıp ailesi — değişen tek şey hangi uzayda ölçüldüğü ve ne kadar eğitildiği. Bu, bir skordan daha öğretici bir sonuçtur.</div>
+      İlk iki madde "biz iyiyiz" demeye yakın. Üçüncüsü farklı bir şey söylüyor: kazancı getiren şey yeni bir mimari değil, referansın <b>kendi</b> mimarisinin çöküş havuzundan çıkarılmasıydı. Aynı ağ, aynı veri, aynı nokta tabanlı kayıp — değişenler dönme temsili (6B), omurganın başlangıcı (ImageNet) ve çıkışın görülmesine yetecek bütçe. Bu, bir skordan daha öğretici bir sonuçtur.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 29 ============ -->
+<div class="konu" id="k29">
+  <div class="kbas"><span class="kno">29</span><h2>Bilinen sınırlar: neyi çözmediğini yazmak</h2><span class="kfaz">Faz 6</span></div>
+  <div class="kgov">
+    <p>Bir projenin README'si okuyana iki şey söyler: ne yapıldı ve <b>ne kadar güvenilir</b>. İkincisini sonuç tablosu söyleyemez; onu söyleyen, neyin ölçülmediğinin açıkça yazıldığı bölümdür. Yol haritası bunu Faz 6'nın zorunlu maddesi yaptı: "neyi çözmediğini de yaz".</p>
+
+    <div class="blok">
+      <h4>Üç yol, biri doğru</h4>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th>Yaklaşım</th><th>Örnek</th><th>Sonuç</th></tr></thead>
+      <tbody>
+        <tr><td>Hiç yazmamak</td><td>—</td><td><b class="ele">Seçilmedi.</b> Okuyan sınırı kendisi bulur ve bütün sayılara güvenini kaybeder.</td></tr>
+        <tr><td>Genel çekince</td><td>"Sonuçlar farklı verilerde değişebilir."</td><td><b class="ele">Seçilmedi.</b> Her proje için doğru, bu yüzden hiçbir bilgi taşımıyor.</td></tr>
+        <tr><td>Ölçüme bağlı, özgül sınır</td><td>"Her satır tek tohumla koştu; son basamağın %4,9'u tohum oynamasının içinde kalabilir."</td><td><b class="sec">Seçildi.</b> Hangi sayının ne kadar güvenilir olduğunu söylüyor ve bir sonraki deneyi tarif ediyor.</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4>Bu projenin sınırları nereden çıktı</h4>
+      <p>Hiçbiri sonradan akla gelmedi; her biri bir fazın kayıtlarından okundu:</p>
+      <ul>
+        <li><b>Sıralama değil</b> — konu 28: test kümesi bizim bölmemiz.</li>
+        <li><b>Tek tohum</b> — bütün koşumlar <code>tohum 20260915</code>. Tohumdan tohuma oynama hiç ölçülmedi.</li>
+        <li><b>Sürüklenme bitmedi</b> — konu 18: yanlılık taramaya özgü, sabit düzeltme zarar veriyor.</li>
+        <li><b>Kısa taramalar</b> — TUS-REC2025 eğitim verisi hâlâ erişim bekliyor; 1570 karelik taramada en iyi model ölçülmedi.</li>
+        <li><b>Tutarlılık kısıtı adil sınanmadı</b> — konu 23: 60 dakikada 13 epok.</li>
+      </ul>
+    </div>
+
+    <div class="tuzak"><span class="kt">Tek tohum, küçük farkları anlamsızlaştırır</span>
+      Rastgele başlangıç, veri karıştırma sırası ve artırma, aynı yapılandırmayı iki kez koşunca farklı sayılar üretir. Bu oynamanın büyüklüğü ölçülmeden iki satır arasındaki <b>küçük</b> bir fark (bizde %4,9) gerçek mi gürültü mü bilinemez. Büyük farklar (%69) güvenlidir çünkü hiçbir makul tohum oynaması o boyutta değildir.
+      <p style="margin-top:7px">Doğru yol: en az üç tohumla koşup ortalama ± standart sapma raporlamak. 4 GB kartta 180 dakikalık dört satır × üç tohum = 36 saat; bu yüzden yapılmadı ve bu yüzden <b>sınır olarak yazıldı</b>.</p></div>
+
+    <div class="kutu"><span class="kt">Yazılan sınır, bir sonraki işin listesidir</span>
+      Her madde "burada durdum, çünkü..." demek. Mülakatta "bu projeyi devam ettirsen ne yapardın" sorusunun cevabı hazırdır: üç tohum, TUS-REC2025'in uzun taramaları, taramaya uyumlu sürüklenme düzeltmesi.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 30 ============ -->
+<div class="konu" id="k30">
+  <div class="kbas"><span class="kno">30</span><h2>Tek komutla yeniden üretim: kaldığı yerden süren zincir</h2><span class="kfaz">Faz 6</span></div>
+  <div class="kgov">
+    <p>README'deki her sayı, depoyu klonlayan birinin makinesinde tek komutla yeniden çıkabilmeli. Yoksa sayı bir iddiadır, sonuç değil. Bu projede zincir ~23 saat sürüyor; bu kadar uzun bir işte asıl sorun komutun kendisi değil, <b>yarıda kesilmesi</b>.</p>
+
+    <div class="blok">
+      <h4>Seçilen: mevcut betikleri zincirleyen ince bir Python betiği</h4>
+      <p><code>scripts/yeniden_uret.py</code> yeni hiçbir hesap içermiyor. README'deki sırayla <code>faz2_hazirla.py</code> → merdiven → uzun koşum → tablo → test ölçümü betiklerini çağırıyor. Her adım biterse bir sonrakine geçiyor, başarısız olursa duruyor.</p>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Araç</th><th>Güçlü yanı</th><th>Neden seçilmedi</th></tr></thead>
+      <tbody>
+        <tr><td><b class="sec">İnce Python betiği</b></td><td>Ek bağımlılık yok, Windows'ta aynen çalışıyor, okuması 80 satır</td><td>— (seçildi)</td></tr>
+        <tr><td>Makefile</td><td>Bağımlılık grafiği, zaman damgasıyla atlama</td><td>Windows'ta <code>make</code> yok; dosya zaman damgası "eğitim bitti mi" sorusunu yanlış cevaplıyor (yarım kalan koşum da dosya bırakır)</td></tr>
+        <tr><td>Snakemake / DVC</td><td>Gerçek iş akışı motoru, önbellek, uzak depolama</td><td>Beş adımlık doğrusal bir zincir için ağır; okuyana yeni bir araç öğretmek gerekiyor</td></tr>
+        <tr><td>Kabuk betiği (.sh / .ps1)</td><td>En kısa</td><td>İki ayrı sürüm gerekir; "bu adım bitti mi" mantığı kabukta kırılgan</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4>"Bu adım bitti mi?" sorusunun doğru cevabı</h4>
+      <p>Tekrar çalıştırıldığında biten adımı atlamak için bir işaret gerekiyor. Yanlış işaret: <code>en_iyi_model.pt</code> var mı? — eğitim yarıda kesilse de bu dosya yazılmış olur. Doğru işaret: <b>en son yazılan dosya</b>. <code>faz4_deney.py</code> <code>deney.json</code>'u ancak eğitim, ölçüm ve bağdaşımın üçü de bittikten sonra yazıyor.</p>
+      <pre>def bitti(kok, ad):
+    # deney.json yalnizca uc adim bittiginde yaziliyor
+    return (kok / ad / "deney.json").exists()</pre>
+    </div>
+
+    <div class="tuzak"><span class="kt">Yanlış Python, sessiz başarısızlık</span>
+      Bu fazda ölçüldü: sekiz saatlik koşum sistemdeki Python ile başlatıldı ve ilk satırda <code>No module named 'pytorch3d'</code> ile düştü. Zincir betiği alt betikleri <code>sys.executable</code> ile çağırıyor — yani doğru ortamı <b>kendisi</b> seçmiyor, kendisini çağıran Python'u kullanıyor. Önce <code>conda activate serbestel</code>, sonra komut. Kurulum bölümündeki <code>ortam_dogrula.py</code> tam bunu yakalamak için var.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 31 ============ -->
+<div class="konu" id="k31">
+  <div class="kbas"><span class="kno">31</span><h2>Tanıtım videosu: MIP ile hacim ve dürüst örnek seçimi</h2><span class="kfaz">Faz 6</span></div>
+  <div class="kgov">
+    <p>Yol haritası 60 saniyelik bir video istiyor: solda kareler akıyor, sağda hacim oluşuyor, sonda gerçek referansla yan yana. <code>scripts/video.py</code> bunu üretiyor. İki karar var: hacim nasıl çizilecek, ve hangi tarama gösterilecek.</p>
+
+    <div class="blok">
+      <h4>Hacmi çizmek: maksimum yoğunluk izdüşümü (MIP)</h4>
+      <p>Her karenin pikselleri seyreltiliyor (4'te 1, kare başına 19.200 nokta), tahmin edilen dönüşümle 3B'ye taşınıyor, ekrana izdüşürülüyor. Aynı ekran pikseline düşen noktalardan <b>en parlağı</b> kalıyor. Ultrasonda bilgiyi parlak yapılar (kemik yüzeyi, tendon kılıfı) taşıdığı için MIP tam onları öne çıkarır. Derinlik ipucu için yakın noktalar biraz daha parlak çiziliyor.</p>
+      <pre>np.maximum.at(tampon, v * boyut + u, parlaklik * (0.55 + 0.45 * yakinlik))</pre>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Yöntem</th><th>Neden seçilmedi / seçildi</th></tr></thead>
+      <tbody>
+        <tr><td><b class="sec">Nokta bulutundan MIP</b></td><td>Sabit kamerada tampon kare kare birikiyor: "hacim oluşuyor" sahnesi ucuz. Saf numpy, GPU istemiyor</td></tr>
+        <tr><td>Voksel ızgarası + ışın izleme</td><td>Doğru hacim işleme, ama her video karesinde ızgarayı yeniden kurmak ya da güncellemek gerekiyor; 1800 kare için ağır</td></tr>
+        <tr><td>Eş-yüzey (marching cubes) ağı</td><td>Ultrason gürültülü; tek bir eşik anlamlı bir yüzey vermiyor, lekeli bir kabuk çıkıyor</td></tr>
+        <tr><td>matplotlib 3B saçılım</td><td>Milyonlarca noktada kare başına saniyeler; derinlik sıralaması yok</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="tuzak"><span class="kt">En iyi taramayı göstermek videoyu güzelleştirir ama yalan söyler</span>
+      240 test taramasının GP'si geniş bir aralığa yayılıyor. En iyisini seçmek "model böyle çalışıyor" izlenimi verir, oysa tipik davranış bu değildir. Betik taramayı <b>kendisi</b> seçiyor: test ölçümünde GP'si ortancaya en yakın olan. <code>U_uzun</code> için 018/RH_Per_C_DtP, GP 15,33 mm (ortanca 15,36). Son model <code>U_uzun_C</code> için 018/LH_Par_C_PtD, GP 13,07 mm (ortanca 13,07) — test kümesinde GP 5,5 ile 64,4 mm arasına yayılıyor, videodaki tarama bu aralığın tam ortası.</div>
+
+    <div class="kutu"><span class="kt">Görselleştirme de doğrulanır</span>
+      Video kodu dönüşüm zincirini ölçüm kodundan ayrı kuruyor; yanlış bir ters matris ya da kayık bir kare indisi, düzgün görünen ama yanlış bir hacim üretir. Kontrol: video betiği kendi noktalarından ortalama piksel hatasını hesaplayıp yazıyor. Aynı tarama için <b>15,38 mm</b> (seyrek ızgara) — ölçüm betiğinin 307.200 piksellik sonucu <b>15,33 mm</b>. İki bağımsız yol aynı sayıya varıyorsa çizilen hacim, ölçülen hacimdir.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 32 ============ -->
+<div class="konu" id="k32">
+  <div class="kbas"><span class="kno">32</span><h2>Bir fikrin katkısı bütçeyle değişir: erken çıkış ve son nokta</h2><span class="kfaz">Faz 6</span></div>
+  <div class="kgov">
+    <p>Faz 5'in merdiveni "parametre uzayında kayıp GP'yi %69 düşürüyor" dedi. Faz 6 aynı fikri en iyi yapılandırmanın üstüne, sekiz saatlik bütçeyle ekledi. Kazanç gerçek ama çok daha küçük çıktı. Bu çelişki değil; "bir fikrin katkısı" diye sabit bir sayı olmadığını gösteriyor.</p>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Bütçe ve ortam</th><th>Nokta → parametre kaybı, GP</th><th>Ne ölçülüyordu</th></tr></thead>
+      <tbody>
+        <tr><td>60 dk, taban (Faz 4)</td><td>%−37,8</td><td>İki koşum da çöküş havuzunun içinde</td></tr>
+        <tr><td>180 dk, referans ayarları (Faz 5)</td><td><b class="sec">%−69,0</b></td><td>Biri çıktı, diğeri çıkamadı</td></tr>
+        <tr><td>480 dk, 6B + ImageNet üstüne (Faz 6)</td><td>%−6,2 doğrulama, %−16,5 test</td><td>İkisi de çıkmış; son noktalar karşılaştırılıyor</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="blok">
+      <h4>Eğri bunu açıklıyor</h4>
+      <p>Kare başına doğrulama mesafesi, aynı epoklarda:</p>
+      <pre>epok 230   U_uzun 0,305 mm   U_uzun_C <b>0,229 mm</b>
+epok 460   U_uzun 0,208 mm   U_uzun_C <b>0,203 mm</b></pre>
+      <p>Parametre kaybı çöküşten <b>daha erken</b> çıkarıyor. Kısa bütçede bu, "çıktı / çıkmadı" farkı olarak devasa görünür (%69). Uzun bütçede öbür koşum da çıkar ve fark, iki modelin <b>vardığı yer</b> arasındaki farka iner.</p>
+    </div>
+
+    <div class="tuzak"><span class="kt">Bir ablasyon sayısı, ölçüldüğü bütçenin sayısıdır</span>
+      "C fikri %69 getiriyor" cümlesi eksik. Doğrusu: "180 dakikada, referans ayarlarının üstüne, %69." Aynı fikir başka bir tabanın üstünde ve başka bir bütçede %6 getirebilir. Konu 27 yanlış bütçenin katkıyı <b>gizlediğini</b> gösterdi; bu konu tersini gösteriyor: kısa bütçe, hızlandıran bir fikrin katkısını <b>şişirebilir</b>.</div>
+
+    <div class="kutu"><span class="kt">Kalan kazanç nerede</span>
+      LP iki modelde aynı (0,1724 ve 0,1726); iyileşme tamamen küresel ölçülerde, GP/LP 89×'ten 84×'e. Yani parametre kaybı kare başına daha iyi tahmin yapmıyor, <b>daha az yanlı</b> tahmin yapıyor. Konu 15'in bulgusu tekrar ediyor: sürüklenmeyi hatanın büyüklüğü değil yanlılığı belirliyor.</div>
+
+    <div class="blok">
+      <h4>Doğrulama %6, test %16: hangisine inanmalı?</h4>
+      <p>Doğrulama denek başına 6 tarama (60), test 240 tarama. Tek tohumla hangisinin gerçek etkiye daha yakın olduğu bilinemez. Söylenebilecek olan: iki bağımsız küme de <b>aynı yönde</b>. Büyüklüğü söylemek için birden fazla tohum gerekiyor (konu 29).</p>
+    </div>
+
+    <div class="kutu"><span class="kt">Aynı ders, bağdaşım eğrisinde</span>
+      Merdivenin ara anlık görüntülerinden çizilen eğriler (<code>docs/bagdasim_merdiven.png</code>) bunu bir kez daha gösteriyor. ImageNet omurga GP tablosunda en küçük katkıyı veriyordu (%4,9), ama eğride bağdaşımı <b>epok 50'de</b> 0,39'a çıkarıyor — parametre kaybının tek başına 200–250 epokta vardığı düzeye. Katkısı son noktada değil <b>hızda</b>. Referans ayarları (A1) ise 350 epok boyunca 0,02–0,06'da düz kalıyor: yanlış yapılandırmada bütçe hiçbir şey satın almıyor.</div>
   </div>
 </div>
 

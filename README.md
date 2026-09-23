@@ -7,6 +7,81 @@ dönüşümler zincirleme çarpılarak her karenin ilk kareye göre konumu bulun
 Kıyas noktası: **TUS-REC2025** (MICCAI 2025 / ASMUS, UCL). Yarışma Ekim 2025'te
 kapandı; bu proje yayınlanmış sonuçlara karşı çalışır, sıralamaya girmez.
 
+## Sonuç — tek bakışta
+
+**Sürüklenme hatası (GP) referans sisteme göre %83 azaldı**: 86,90 mm → 14,40 mm,
+dokunulmamış test kümesinde (10 denek, 240 tarama). Dört ölçünün dördünde de
+yarışmanın kendi referansı geçildi. Tek bir 4 GB dizüstü ekran kartında,
+sekiz saatlik eğitimle.
+
+| | GP | GL | LP | LL |
+|---|---|---|---|---|
+| Referansın yeniden üretimi (Faz 2) | 86,90 | 83,65 | 0,3856 | 0,3850 |
+| `U_uzun` (Faz 4) | 17,25 | 16,35 | 0,1565 | 0,1372 |
+| **En iyi model (`U_uzun_C`, Faz 6)** | **14,40** | **12,52** | **0,1510** | **0,1313** |
+
+Birim mm. GP/GL ilk kareye göre (birikmiş hata), LP/LL önceki kareye göre
+(adım hatası); ayrıntı: [Ölçüm](#ölçüm).
+
+**Ablasyon — hangi fikir ne getirdi.** Kümülatif merdiven, her satır bir
+öncekinin üstüne tek şey ekliyor; dördü de eşit 180 dakika, doğrulama kümesi:
+
+| Satır | Eklenen | GP | LP | \|r\| | Önceki satıra göre GP |
+|---|---|---|---|---|---|
+| `A1_referans` | referansın kendi ayarları | 93,18 | 0,4007 | 0,031 | (çıpa) |
+| `A2_C` | parametre uzayında kayıp | 28,93 | 0,2106 | 0,371 | **%−69,0** |
+| `A3_CB` | + 6B sürekli dönme temsili | 21,98 | 0,1953 | 0,366 | %−24,0 |
+| `A4_CBG` | + ImageNet omurga | **20,91** | **0,1888** | **0,522** | %−4,9 |
+
+`|r|`, tahmin edilen hareketle gerçek hareketin bağdaşımı: 0'a yakınsa model
+görüntüye bakmıyor, ortalamayı söylüyor ("regresyon çöküşü"). Projenin ana
+bulgusu bu sütunda: referans yapılandırması üç kat bütçede de çökmüş kalıyor
+(0,031); çöküşten çıkaran bütçe değil **yapılandırma**, bütçe yalnızca
+çıkışın görülmesini sağlıyor. Ayrıntı: [Faz 4](#faz-4--iyileştirme) ve
+[Faz 5](#faz-5--ablasyon-ve-dürüst-rapor).
+
+Yeniden üretim, tek komut (~23 saat, veri indirildikten sonra):
+
+```bash
+python scripts/yeniden_uret.py --kaynak D:/SerbestEl-veri/tusrec2024
+```
+
+60 saniyelik video (solda kareler, sağda tahminle oluşan hacim, sonda
+gerçekle yan yana). Tarama elle seçilmiyor: test GP'si ortancaya en yakın
+olan kullanılıyor, yani gösterilen şey tipik bir tarama, en iyisi değil.
+
+```bash
+python scripts/video.py --kosum results/faz6/U_uzun_C
+```
+
+## Bilinen sınırlar
+
+Neyin çözülmediği de sonucun parçası:
+
+- **Sıralama değil.** Test kümesi kendi denek bazlı bölmemiz (açık eğitim
+  verisinden ayrılan 10 denek), yarışmanın kapalı test kümesi değil.
+  Liderlik tablosuyla karşılaştırma [gösterge](#yayınlanmış-sonuçlara-göre-konum),
+  sıra değil.
+- **Tek tohum.** Her satır bir kez koştu (`tohum 20260915`); tohumdan tohuma
+  oynama ölçülmedi. Merdivenin büyük basamakları (%69, %24) bu belirsizliğin
+  çok üstünde olmalı, ama son basamak (%4,9) onun içinde kalabilir.
+- **Sürüklenme bitmedi.** GP/LP oranı 225×'ten 95×'e indi ama hâlâ büyük:
+  kalan hata taramaya özgü bir yanlılık. Tek bir sabit düzeltmeyle
+  giderilemediği ölçüldü (Faz 3); taramaya uyum sağlayan bir yöntem denenmedi.
+- **Kısa taramalarda eğitildi, uzunlarda sınanmadı.** TUS-REC2025 eğitim
+  kümesine erişim talebi hâlâ bekliyor; model TUS-REC2024'te (ortanca 547
+  kare) eğitilip ölçüldü. 2025'in 1570 karelik dönen taramalarında en iyi
+  model ölçülmedi.
+- **Bütçe referansın %4'ü.** 866 epok, referansın 20.000'ine karşı. Merdiven
+  180 dakikayla sınırlı; en iyi yapılandırma uzun bütçede tek koşumla ölçüldü.
+  `U_uzun_C`'nin `U_uzun`'a üstünlüğü (test GP %−16,5) tek tohumluk bir fark.
+- **Tutarlılık kısıtı adil sınanmadı.** 60 dakikada 13 epok koşabildi;
+  sonucu fikri değil uygulamanın maliyetini yargılıyor.
+- **Tek anatomi, tek cihaz.** Veri kümesi önkol taramaları, tek prob ve tek
+  protokol. Başka anatomiye ya da cihaza genelleme ölçülmedi.
+- **Gerçek zamanlılık iddiası yok.** Çıkarım hızı sistem düzeyinde
+  ölçülmedi; rekonstrüksiyon çevrimdışı yapılıyor.
+
 ## Belgeler
 
 Tarayıcıda aç:
@@ -684,7 +759,8 @@ Açık kalan tek kutu da burada: **parametre kaybı + uzun bütçe birlikte
 denenmedi.** `U_uzun` nokta tabanlı kayıpla koştu; merdiven kayıp uzayının
 tek başına %69 getirdiğini gösterdi. İkisinin bileşimi bu donanımda
 ulaşılabilecek en iyi sonuç olmaya aday ve tek bir sekiz saatlik koşum
-mesafesinde.
+mesafesinde. Faz 6'da koşuldu: `U_uzun_C`, test GP 14,40 — ayrıntı
+[Faz 6](#faz-6--paketleme-ve-son-koşum).
 
 ### Çalışmayanlar — ve neden çalışmadıkları
 
@@ -724,7 +800,8 @@ Bizim sayılarımız (kendi ayırdığımız 10 denek, 240 tarama):
 | | GP | GL | LP | LL |
 |---|---|---|---|---|
 | Faz 2 — referansın yeniden üretimi (178 epok) | 86,90 | 83,65 | 0,3856 | 0,3850 |
-| **Faz 4 — `U_uzun` (912 epok)** | **17,25** | **16,35** | **0,1565** | **0,1372** |
+| Faz 4 — `U_uzun` (912 epok) | 17,25 | 16,35 | 0,1565 | 0,1372 |
+| **Faz 6 — `U_uzun_C` (866 epok)** | **14,40** | **12,52** | **0,1510** | **0,1313** |
 
 **Bu bir sıralama değil — test kümeleri farklı.** Liderlik tablosu yarışmanın
 kapalı test kümesinde (85 deneklik kohortun ayrılmış kısmı), bizimki kendi
@@ -734,23 +811,107 @@ sıralama değil.
 
 Bu kaydıyla okunduğunda:
 
-- **Yerel doğruluk üst sıralarla yarışıyor.** LP 0,1565 ve LL 0,1372;
-  3.–7. sıradaki bütün takımlardan iyi, 1. ve 2. sıranın (0,153/0,120 ve
-  0,138/0,116) hemen yanında.
-- **Küresel doğruluk 4. sıra bandında.** GP 17,25 ve GL 16,35, COCHE (13,9)
-  ile AGH-MedApp (18,6) arasında.
+- **Yerel doğruluk üst sıralarla yarışıyor.** LP 0,1510 ve LL 0,1313;
+  3.–7. sıradaki bütün takımlardan iyi. LP'de 1. sıranın (0,153) önünde,
+  yalnızca 2. sıranın (0,138) gerisinde; LL'de ilk ikinin (0,120 ve 0,116)
+  gerisinde.
+- **Küresel doğruluk 3.–4. sıra arasında.** GP 14,40 ve GL 12,52, COCHE
+  (13,9 / 10,7) ile AGH-MedApp (18,6 / 16,0) arasında, COCHE'ye daha yakın.
 - **Yarışmanın kendi referansı geçildi** — dört ölçünün dördünde de
-  (26,11 → 17,25; 23,68 → 16,35; 0,214 → 0,157; 0,181 → 0,137). Bu referans
-  20.000 epokluk bütçeyle eğitilmişti; bizimki 912 epok, tek bir 4 GB
+  (26,11 → 14,40; 23,68 → 12,52; 0,214 → 0,151; 0,181 → 0,131). Bu referans
+  20.000 epokluk bütçeyle eğitilmişti; bizimki 866 epok, tek bir 4 GB
   dizüstü ekran kartında sekiz saat.
 
-Bu son satır Faz 4'ün bulgusunun pratik karşılığı: kazancı getiren şey yeni
-bir mimari değil, **çöküş havuzundan çıkmaya yetecek kadar bütçe** — ve
-çıkıldıktan sonra referansın kendi mimarisi, referansın kendi skorunun
-belirgin biçimde üstüne çıkıyor.
+Bu son satırın pratik karşılığı: kazancı getiren şey yeni bir mimari değil,
+**çöküş havuzundan çıkaran yapılandırma** (6B temsil, ImageNet omurga,
+parametre uzayında kayıp) ve çıkışın görülmesine yetecek bütçe. Faz 5
+bütçenin tek başına yetmediğini ölçtü: referansın kendi ayarları üç kat
+bütçede de çökmüş kalıyor. Çıkıldıktan sonra ise referansın kendi mimarisi,
+referansın kendi skorunun belirgin biçimde üstüne çıkıyor.
 
 Kaynak: [TUS-REC2024 liderlik tablosu](https://github.com/UCL/tus-rec-challenge/blob/main/leaderboard.md),
 [yarışma raporu (arXiv:2506.21765)](https://arxiv.org/abs/2506.21765).
+
+## Faz 6 — paketleme ve son koşum
+
+Yol haritası bu fazdan video, tek komutla yeniden üretim, README'nin başına
+ablasyon tablosu ve bilinen sınırlar istiyor; hepsi yukarıda. Faz, Faz 5'in
+açık bıraktığı tek kutuyla başladı: parametre kaybı ile uzun bütçe hiç
+birlikte denenmemişti.
+
+```bash
+python scripts/faz4_deney.py U_uzun_C --sure 480 --kok results/faz6
+python scripts/faz4_deney.py U_uzun_C --kok results/faz6 --test-olcumu
+```
+
+`U_uzun_C`, `U_uzun`'dan **tek değişkenle** ayrılıyor: kayıp nokta yerine
+parametre uzayında. Bütçe, tohum, temsil ve omurga aynı.
+
+### Sonuç
+
+| | Küme | GP | GL | LP | LL | GP/LP | \|r\| |
+|---|---|---|---|---|---|---|---|
+| `U_uzun` | doğrulama (60 tarama) | 15,377 | 13,587 | 0,1724 | 0,1578 | 89× | 0,545 |
+| `U_uzun_C` | doğrulama (60 tarama) | **14,425** | **12,611** | 0,1726 | **0,1551** | **84×** | **0,557** |
+| `U_uzun` | test (240 tarama) | 17,252 | 16,352 | 0,1565 | 0,1372 | 110× | |
+| `U_uzun_C` | test (240 tarama) | **14,404** | **12,516** | **0,1510** | **0,1313** | **95×** | |
+
+Test kümesinde GP %−16,5, GL %−23,5; taramaların %59'unda `U_uzun_C` daha
+iyi. Referansa (Faz 2) göre toplam: GP %−83,4, GL %−85,0, LP %−60,8,
+LL %−65,9. Test ölçümü yalnız doğrulamada kazanan için, bir kez yapıldı.
+
+### Kayıp uzayının katkısı uzun bütçede küçülüyor
+
+| Bütçe | Nokta kaybı → parametre kaybı, GP (doğrulama) |
+|---|---|
+| 60 dk (Faz 4, havuzun içinde) | %−37,8 |
+| 180 dk (Faz 5, merdivenin ilk basamağı) | %−69,0 |
+| 480 dk (Faz 6, 6B + ImageNet'in üstüne) | %−6,2 |
+
+Kare başına doğrulama mesafesi bunun nasıl olduğunu gösteriyor: epok 230'da
+`U_uzun_C` 0,229 mm, `U_uzun` 0,305 mm; epok 460'ta 0,203 ve 0,208. Parametre
+kaybı çöküşten **daha erken** çıkarıyor, ama iki koşum da çıktıktan sonra
+aradaki fark kapanıyor. Merdivendeki %69, büyük ölçüde "çıktı mı çıkmadı mı"
+farkıydı; burada ikisi de çıkmış durumda. Kalan kazanç yerelde değil
+(LP aynı) küreselde — GP/LP 89×'ten 84×'e: parametre kaybı, sürüklenmeyi
+büyüten yanlılığı biraz daha az üretiyor.
+
+Doğrulamadaki %6,2 ile testteki %16,5 arasındaki fark da kayda değer:
+doğrulama denek başına 6 tarama (60), test 240 tarama. Tek tohumla bu iki
+sayının hangisinin gerçek etkiye daha yakın olduğu söylenemez; ikisi de aynı
+yönde.
+
+### Merdivenin bağdaşım eğrileri — çıkış yapılandırmaya bağlı
+
+Faz 5'in tablosu her satırın **son** noktasını veriyordu. Ara anlık
+görüntülerden çizilen eğriler (doğrulama, denek başına 2 tarama) çıkışın
+**ne zaman** olduğunu gösteriyor:
+
+```bash
+python scripts/faz4_bagdasim_egrisi.py --kosum results/faz5/A2_C --tarama 2
+```
+
+![Bağdaşım eğrisi, ablasyon merdiveni](docs/bagdasim_merdiven.png)
+
+| Epok | 0 | 50 | 100 | 200 | 300 | son |
+|---|---|---|---|---|---|---|
+| `A1_referans` | 0,092 | 0,036 | 0,041 | 0,042 | 0,021 | 0,036 (350) |
+| `A2_C` | 0,030 | 0,147 | 0,256 | 0,333 | 0,402 | 0,402 (300) |
+| `A3_CB` | 0,045 | 0,126 | 0,222 | 0,313 | 0,429 | 0,429 (300) |
+| `A4_CBG` | 0,056 | **0,391** | 0,434 | 0,481 | 0,508 | **0,538** (400) |
+
+Üç şey okunuyor:
+
+- **`A1` düz.** 350 epok boyunca 0,02–0,06 bandında; faz geçişinin olduğu
+  epok 200–250'de hiçbir kıpırtı yok. Referans yapılandırması için daha uzun
+  eğitim çıkış getirmez — Faz 5'in "bütçe değil yapılandırma" sonucunun
+  görsel kanıtı.
+- **`A2` ve `A3` kademeli yükseliyor.** Parametre kaybı çıkışı başlatıyor;
+  6B temsil eğriyi pek değiştirmiyor ama son GP'yi %24 iyileştiriyor.
+- **ImageNet (`A4`) çıkışı öne çekiyor.** Epok 50'de 0,39'a sıçrıyor —
+  `A2`'nin 200–250 epokta vardığı düzeye. GP tablosunda G'nin katkısı en küçüğüydü
+  (%4,9); eğri, katkısının **son noktada değil hızda** olduğunu gösteriyor.
+  Kısa bütçede bu fark belirleyici olur.
 
 ## Donanım
 
