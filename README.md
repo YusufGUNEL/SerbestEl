@@ -191,7 +191,7 @@ Negative results are results. Each was measured, not assumed.
 | **Longer temporal context** (`A_baglam`, 5 frames) | Best local accuracy (LP 0.3988), smallest global gain (2.4%) | GP/LP got *worse* (230× vs. 227×): better per-frame estimates, not less drift. Drift is set by the bias, not the size, of the error |
 | **Global drift correction** | Hurts both models (+1%, +2%) | The bias is real and large but scan-specific; no single constant removes it |
 | **Data densification** (`S_ezber`, diagnostic) | |r| still 0.066 | 24 scans, 2400 epochs. The GP drop (94 → 75) came from a narrower bias, not learning — local accuracy got worse (0.413 → 0.496) |
-| **5-frame context on the best model** (`U_uzun_CA`, 8 h) | GP 26.35 vs. 14.43, LP 0.196 vs. 0.173 (validation) | Worse on every metric, drift ratio 134× vs. 84×. Not a budget artefact this time: 1122 epochs, past the phase transition, |r| 0.51. Untested hypothesis: with 10 frame pairs in the loss, the parameter loss is dominated by the wider-spaced pairs, while the evaluation chains only adjacent ones |
+| **5-frame context on the best model** (`U_uzun_CA`, 8 h) | GP 26.35 vs. 14.43, LP 0.196 vs. 0.173 (validation) | Worse on every metric, drift ratio 134× vs. 84×. Not a budget artefact this time: 1122 epochs, past the phase transition, \|r\| 0.51. Untested hypothesis: with 10 frame pairs in the loss, the parameter loss is dominated by the wider-spaced pairs, while the evaluation chains only adjacent ones |
 
 ## Known limitations
 
