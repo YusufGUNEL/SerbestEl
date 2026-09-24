@@ -153,6 +153,8 @@
     <li><a href="#k30">Tek komutla yeniden üretim: kaldığı yerden süren zincir</a></li>
     <li><a href="#k31">Tanıtım videosu: MIP ile hacim ve dürüst örnek seçimi</a></li>
     <li><a href="#k32">Bir fikrin katkısı bütçeyle değişir: erken çıkış ve son nokta</a></li>
+    <li><a href="#k33">Doğrulama kümesi ne kadar büyük olmalı: tohum gürültüsü</a></li>
+    <li><a href="#k34">Zamansal bağlam: kayıp hangi çiftleri görüyor</a></li>
     <li class="bek">Faz ilerledikçe eklenecek…</li>
   </ol>
 </div>
@@ -1494,6 +1496,67 @@ epok 460   U_uzun 0,208 mm   U_uzun_C <b>0,203 mm</b></pre>
 
     <div class="kutu"><span class="kt">Aynı ders, bağdaşım eğrisinde</span>
       Merdivenin ara anlık görüntülerinden çizilen eğriler (<code>docs/figures/coherence_ladder.png</code>) bunu bir kez daha gösteriyor. ImageNet omurga GP tablosunda en küçük katkıyı veriyordu (%4,9), ama eğride bağdaşımı <b>epok 50'de</b> 0,39'a çıkarıyor — parametre kaybının tek başına 200–250 epokta vardığı düzeye. Katkısı son noktada değil <b>hızda</b>. Referans ayarları (A1) ise 350 epok boyunca 0,02–0,06'da düz kalıyor: yanlış yapılandırmada bütçe hiçbir şey satın almıyor.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 33 ============ -->
+<div class="konu" id="k33">
+  <div class="kbas"><span class="kno">33</span><h2>Doğrulama kümesi ne kadar büyük olmalı: tohum gürültüsü</h2><span class="kfaz">Faz 7</span></div>
+  <div class="kgov">
+    <p>Deneyler hız için doğrulama kümesinin küçük bir parçasında (denek başına 6 tarama, 60 tarama) sıralanıyordu. En iyi model ikinci bir tohumla yeniden eğitilince bu parçanın ne kadar gürültülü olduğu ölçüldü.</p>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Aynı yapılandırma, iki tohum</th><th>Tohum 1</th><th>Tohum 2</th><th>Fark</th></tr></thead>
+      <tbody>
+        <tr><td>Doğrulama, 60 tarama</td><td>14,43</td><td>18,84</td><td><b class="ele">%31</b></td></tr>
+        <tr><td>Doğrulama, 240 tarama</td><td>16,52</td><td>17,22</td><td><b class="sec">%4</b></td></tr>
+        <tr><td>Test, 240 tarama</td><td>14,40</td><td>15,27</td><td><b class="sec">%6</b></td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="tuzak"><span class="kt">Küçük kümede yapılan sıralama yanlış sonuç üretir</span>
+      60 taramada <code>U_uzun_CA1</code> (5 kare) en iyi modelden %11 kötü görünüyordu ve "negatif sonuç" diye yazıldı. 240 taramada aynı iki model <b>berabere</b> çıktı (16,31 / 16,87; eşleşik fark −0,56 ± 0,49 mm). Aradaki fark, kümenin kendi gürültüsünün içindeydi.</div>
+
+    <div class="blok">
+      <h4>Bir farkın gerçek olup olmadığı nasıl okunur</h4>
+      <p>İki model <b>aynı taramalarda</b> ölçüldüğü için tarama tarama fark alınır (eşleşik fark). Farkların ortalaması ve standart hatası (<code>std / √n</code>) birlikte raporlanır. Ortalama, standart hatanın iki katından küçükse fark ayırt edilemez.</p>
+      <pre>fark = gp_model_a - gp_model_b          # 240 tarama, ayni sira
+print(fark.mean(), fark.std() / np.sqrt(len(fark)))</pre>
+    </div>
+
+    <div class="kutu"><span class="kt">Kural</span>
+      Hızlı eleme küçük kümede yapılabilir, ama <b>karar</b> büyük kümede verilir. Bu projede sonraki bütün karşılaştırmalar 240 taramada yapılacak; ek bedeli model başına ~30 dakika.</div>
+  </div>
+</div>
+
+<!-- ============ KONU 34 ============ -->
+<div class="konu" id="k34">
+  <div class="kbas"><span class="kno">34</span><h2>Zamansal bağlam: kayıp hangi çiftleri görüyor</h2><span class="kfaz">Faz 7</span></div>
+  <div class="kgov">
+    <p>TUS-REC'in ilk iki sırası uzun kare dizisine bakan modellerle öne geçiyor. Aynı fikir en iyi modelin üstüne, 5 kareyle denendi. İlk deneme ağır bir kayıpla bitti; sebebi fikir değil, <b>kare eşleme</b> çıktı.</p>
+
+    <div class="blok">
+      <h4>Referansın varsayılan eşlemesi</h4>
+      <p><code>pair_samples(5, 4, 0)</code> 10 çift üretir: <code>0-1, 0-2, 1-2, 0-3, ..., 3-4</code>. Altısı aralıklı. Parametre uzayındaki kayıpta her çift eşit ağırlıkta, ve aralıklı çiftlerde hareket (dolayısıyla hata) büyük. Ölçüm ise yalnız <b>yan yana</b> çiftleri zincirliyor. Model, değerlendirilmeyen çiftlere odaklanıyor.</p>
+      <pre>pair_samples(5, 4, 0)  # 10 cift, 6'si aralikli
+pair_samples(5, 4, 1)  # [[0,1],[1,2],[2,3],[3,4]]  --tek-aralik 1</pre>
+    </div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Deney (240 doğrulama taraması)</th><th>GP</th><th>Yorum</th></tr></thead>
+      <tbody>
+        <tr><td>2 kare (<code>U_uzun_C</code>, 2 tohum ort.)</td><td>16,87</td><td>çıpa</td></tr>
+        <tr><td>5 kare, 10 karışık çift (<code>U_uzun_CA</code>)</td><td><b class="ele">26,35*</b></td><td>aralıklı çiftler kaybı domine ediyor</td></tr>
+        <tr><td>5 kare, yan yana 4 çift (<code>U_uzun_CA1</code>)</td><td>16,31</td><td><b class="sec">berabere</b></td></tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:13px;color:var(--ink-2)">* 60 taramada ölçüldü; fark gürültünün çok üstünde olduğu için sonuç değişmez.</p>
+
+    <div class="tuzak"><span class="kt">Ölçüm de bağlam modelini haksız cezalandırıyordu</span>
+      Her pencereden yalnız ilk çift alındığı için taramanın son 3 adımı "hareket yok" kalıyordu. Düzeltildi (son pencerenin yan yana çiftleri kullanılıyor); etkisi ölçüldü ve küçük çıktı (26,35 → 26,35). Yine de bir yöntemi değerlendirirken ölçüm kodunun o yöntemin <b>bütün çıktısını</b> kullandığı kontrol edilmeli.</div>
+
+    <div class="kutu"><span class="kt">Sonuç</span>
+      Doğru eşlemeyle 5 kare ne kazandırıyor ne kaybettiriyor. Yarışmanın üst sıralarındaki kazanç büyük olasılıkla bağlamın <b>kendisinden</b> değil, onu işleyen mimariden (dizi modelleri, birlikte optimize edilen pozlar) geliyor. Bu, denenmemiş bir sonraki adım.</div>
   </div>
 </div>
 
