@@ -1,6 +1,6 @@
-# SerbestEl — Sensörsüz 3B Ultrason Rekonstrüksiyonu
+# FreeSweep — Sensörsüz 3B Ultrason Rekonstrüksiyonu
 
-> English version: [README.md](README.md)
+> English version: [README.md](README.md) · Önceki adı *SerbestEl*.
 
 Elde gezdirilen ultrason probundan, **konum sensörü olmadan** 3B hacim çıkarma.
 Model, ardışık kareler arasındaki rijit dönüşümü yalnızca görüntüden tahmin eder;

@@ -1,6 +1,6 @@
-# SerbestEl — Sensorless Freehand 3D Ultrasound Reconstruction
+# FreeSweep — Sensorless Freehand 3D Ultrasound Reconstruction
 
-> Türkçe sürüm: [README.tr.md](README.tr.md)
+> Türkçe sürüm: [README.tr.md](README.tr.md) · Formerly *SerbestEl* (Turkish for "freehand").
 
 Reconstructing a 3D volume from a hand-held 2D ultrasound sweep **without any
 position sensor**. A network looks at consecutive frames, predicts the rigid
@@ -300,8 +300,8 @@ Windows + Python 3.10 + conda-forge (the reference says 3.9, but conda-forge has
 no win-64 py39 build of `pytorch3d`; the training code is plain PyTorch).
 
 ```bash
-git clone --recurse-submodules https://github.com/YusufGUNEL/SerbestEl.git
-cd SerbestEl
+git clone --recurse-submodules https://github.com/YusufGUNEL/FreeSweep.git
+cd FreeSweep
 conda env create -f environment.yml
 conda activate serbestel
 python scripts/ortam_dogrula.py     # 9 environment checks, all must pass
@@ -350,7 +350,7 @@ the model's estimates (orange: predicted probe path and current frame):
 ![Volume building up from predicted poses](docs/figures/demo.png)
 
 The full 60-second video is attached to the
-[latest release](https://github.com/YusufGUNEL/SerbestEl/releases/latest).
+[latest release](https://github.com/YusufGUNEL/FreeSweep/releases/latest).
 
 ## Repository layout
 
