@@ -32,6 +32,8 @@ in eight hours.
 | Reference baseline, reproduced from scratch | 86.90 | 83.65 | 0.3856 | 0.3850 | 225× |
 | `U_uzun` (6D rotation + ImageNet backbone, 8 h) | 17.25 | 16.35 | 0.1565 | 0.1372 | 110× |
 | **`U_uzun_C` (+ parameter-space loss, 8 h)** | **14.40** | **12.52** | **0.1510** | **0.1313** | **95×** |
+| `U_uzun_C`, second seed | 15.27 | 13.76 | 0.1548 | 0.1353 | 99× |
+| *`U_uzun_C`, mean of 2 seeds* | *14.84 ± 0.43* | *13.14 ± 0.62* | *0.1529* | *0.1333* | |
 
 All values in mm, test set, full 307,200-pixel grid. **GP/GL** are errors
 relative to the first frame (they accumulate — this is the drift); **LP/LL**
@@ -198,10 +200,14 @@ Negative results are results. Each was measured, not assumed.
 
 - **Not a ranking.** The test set is our own subject-level split of the public
   data, not the challenge's hidden test set.
-- **Single seed.** Every row ran once (`seed 20260915`); run-to-run variance was
-  not measured. The large ladder steps (69%, 24%) should be well above it; the
-  last step (4.9%) and `U_uzun_C`'s edge over `U_uzun` (−16.5% test GP) may
-  not be.
+- **Two seeds for the best model, one for everything else.** `U_uzun_C` was
+  re-run with a second seed: test GP 14.40 vs. 15.27 (mean 14.84 ± 0.43,
+  −82.9% vs. the reference), so the headline holds and both seeds beat
+  `U_uzun` (17.25). The same pair differs by **31% on validation** (14.43 vs.
+  18.84) but only 6% on test: the 60-scan validation set is too small to rank
+  close configurations. Validation differences below ~30% — the last ladder
+  step (4.9%), `U_uzun_CA1` vs. `U_uzun_C` (11%) — should be read as
+  inconclusive, not as results.
 - **Drift is not solved.** GP/LP fell from 225× to 95× but remains large; the
   remaining error is a scan-specific bias. A single constant correction was
   shown to fail; a scan-adaptive method was not tried.

@@ -21,6 +21,8 @@ sekiz saatlik eğitimle.
 | Referansın yeniden üretimi (Faz 2) | 86,90 | 83,65 | 0,3856 | 0,3850 |
 | `U_uzun` (Faz 4) | 17,25 | 16,35 | 0,1565 | 0,1372 |
 | **En iyi model (`U_uzun_C`, Faz 6)** | **14,40** | **12,52** | **0,1510** | **0,1313** |
+| `U_uzun_C`, ikinci tohum | 15,27 | 13,76 | 0,1548 | 0,1353 |
+| *`U_uzun_C`, 2 tohum ortalaması* | *14,84 ± 0,43* | *13,14 ± 0,62* | *0,1529* | *0,1333* |
 
 Birim mm. GP/GL ilk kareye göre (birikmiş hata), LP/LL önceki kareye göre
 (adım hatası); ayrıntı: [Ölçüm](#ölçüm).
@@ -64,9 +66,13 @@ Neyin çözülmediği de sonucun parçası:
   verisinden ayrılan 10 denek), yarışmanın kapalı test kümesi değil.
   Liderlik tablosuyla karşılaştırma [gösterge](#yayınlanmış-sonuçlara-göre-konum),
   sıra değil.
-- **Tek tohum.** Her satır bir kez koştu (`tohum 20260915`); tohumdan tohuma
-  oynama ölçülmedi. Merdivenin büyük basamakları (%69, %24) bu belirsizliğin
-  çok üstünde olmalı, ama son basamak (%4,9) onun içinde kalabilir.
+- **En iyi model iki tohum, geri kalanı tek tohum.** `U_uzun_C` ikinci tohumla
+  yeniden koştu: test GP 14,40 / 15,27 (ortalama 14,84 ± 0,43, referansa göre
+  %−82,9). Ana sonuç tutuyor ve iki tohum da `U_uzun`'u (17,25) geçiyor. Aynı
+  çift **doğrulamada %31** (14,43 / 18,84), testte yalnız %6 farklı: 60
+  taramalık doğrulama kümesi yakın yapılandırmaları sıralamaya yetmiyor.
+  %30'un altındaki doğrulama farkları — merdivenin son basamağı (%4,9),
+  `U_uzun_CA1`'e karşı `U_uzun_C` (%11) — sonuç değil, belirsiz okunmalı.
 - **Sürüklenme bitmedi.** GP/LP oranı 225×'ten 95×'e indi ama hâlâ büyük:
   kalan hata taramaya özgü bir yanlılık. Tek bir sabit düzeltmeyle
   giderilemediği ölçüldü (Faz 3); taramaya uyum sağlayan bir yöntem denenmedi.
