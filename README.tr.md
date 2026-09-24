@@ -71,8 +71,10 @@ Neyin çözülmediği de sonucun parçası:
   %−82,9). Ana sonuç tutuyor ve iki tohum da `U_uzun`'u (17,25) geçiyor. Aynı
   çift **doğrulamada %31** (14,43 / 18,84), testte yalnız %6 farklı: 60
   taramalık doğrulama kümesi yakın yapılandırmaları sıralamaya yetmiyor.
-  %30'un altındaki doğrulama farkları — merdivenin son basamağı (%4,9),
-  `U_uzun_CA1`'e karşı `U_uzun_C` (%11) — sonuç değil, belirsiz okunmalı.
+  240 taramanın tamamında tohum farkı %4 (16,52 / 17,22) ve `U_uzun_CA1`'in
+  görünen %11 kaybı beraberliğe dönüşüyor. Merdiven ve Faz 4 satırları 60
+  taramada sıralandı: büyük basamaklar (%69, %24) geçerli, küçükler (son
+  basamak, %4,9) belirsiz.
 - **Sürüklenme bitmedi.** GP/LP oranı 225×'ten 95×'e indi ama hâlâ büyük:
   kalan hata taramaya özgü bir yanlılık. Tek bir sabit düzeltmeyle
   giderilemediği ölçüldü (Faz 3); taramaya uyum sağlayan bir yöntem denenmedi.
@@ -781,7 +783,7 @@ ya da zarar verdi; hepsinin gerekçesi ölçüldü.
 | **Global sürüklenme düzeltmesi** (Faz 3) | İki modelde de zarar (+%1 ve +%2) | Yanlılık gerçek ve büyük ama **taramaya özgü**. Kehanet sürümü GP'nin %83'ünü siliyor, dürüst sürüm kaybettiriyor. Tek bir sabit düzeltmeyle giderilemez |
 | **Veri yoğunlaştırma** (`S_ezber`, tanı) | Bağdaşım yine kıpırdamadı (\|r\| 0,066) | 24 taramada 2400 epok, kendi eğittiği denekte ölçüm. GP'deki 94→75 iyileşmesi öğrenmeden değil, tek deneğe daralınca yanlılığın küçülmesinden — **yerel doğruluğun kötüleşmesi** (0,413→0,496) bunu ele veriyor |
 | **En iyi modelin üstüne 5 karelik bağlam** (`U_uzun_CA`, 8 sa) | GP 26,35 / 14,43, LP 0,196 / 0,173 (doğrulama) | Dört ölçüde de kötü, GP/LP 134× / 84×. Bu kez bütçe değil: 1122 epok, faz geçişinin ötesinde, \|r\| 0,51. Sınanmamış hipotez: kayıpta 10 kare çifti var ve parametre kaybını aralıklı çiftler domine ediyor, ölçüm ise yalnız komşu çiftleri zincirliyor |
-| **5 kare, yalnız yan yana çiftler** (`U_uzun_CA1`, 8 sa) | GP 16,07 / 14,43, LP 0,1732 / 0,1726 (doğrulama) | Yukarıdaki hipotezi tek değişkenle sınıyor (`--tek-aralik 1`: 10 karışık çift yerine yan yana 4 çift). Hipotez doğrulandı — GP 26,35 → 16,07 (%−39) — ama 5 kare yine 2 kareyi geçemiyor: GP/LP 93× / 84×, yerel doğruluk aynı. Bu bütçede fazla zamansal bağlam sürüklenmeyi azaltmadı. %11'lik fark, sonra ölçülen doğrulama tohum gürültüsünün (%31, bkz. bilinen sınırlar) içinde: net bir kayıp değil, belirsiz |
+| **5 kare, yalnız yan yana çiftler** (`U_uzun_CA1`, 8 sa) | GP 16,07 / 14,43, LP 0,1732 / 0,1726 (doğrulama) | Yukarıdaki hipotezi tek değişkenle sınıyor (`--tek-aralik 1`: 10 karışık çift yerine yan yana 4 çift). Hipotez doğrulandı — GP 26,35 → 16,07 (%−39) — ama 5 kare yine 2 kareyi geçemiyor: GP/LP 93× / 84×, yerel doğruluk aynı. **Doğrulamanın 240 taramasının tamamında yeniden ölçüldü: GP 16,31 / 16,87 (`U_uzun_C`'nin iki tohum ortalaması) — berabere** (eşleşik fark −0,56 ± 0,49 mm, taramaların %52'sinde iyi). 60 taramalık sıralama bunu kayıp saymıştı; 5 kare ne kazandırıyor ne kaybettiriyor |
 
 Ayrıca **beklentiyi tersine çeviren** bir sonuç: `C_parametre` negatif kontrol
 olarak konmuştu (yol haritası "kaybı nokta tabanlı yap" diyor, referans kaybı

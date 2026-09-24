@@ -194,7 +194,7 @@ Negative results are results. Each was measured, not assumed.
 | **Global drift correction** | Hurts both models (+1%, +2%) | The bias is real and large but scan-specific; no single constant removes it |
 | **Data densification** (`S_ezber`, diagnostic) | |r| still 0.066 | 24 scans, 2400 epochs. The GP drop (94 → 75) came from a narrower bias, not learning — local accuracy got worse (0.413 → 0.496) |
 | **5-frame context on the best model** (`U_uzun_CA`, 8 h) | GP 26.35 vs. 14.43, LP 0.196 vs. 0.173 (validation) | Worse on every metric, drift ratio 134× vs. 84×. Not a budget artefact this time: 1122 epochs, past the phase transition, \|r\| 0.51. Untested hypothesis: with 10 frame pairs in the loss, the parameter loss is dominated by the wider-spaced pairs, while the evaluation chains only adjacent ones |
-| **5-frame context, adjacent pairs only** (`U_uzun_CA1`, 8 h) | GP 16.07 vs. 14.43, LP 0.1732 vs. 0.1726 (validation) | Tests the hypothesis above with one change (`--tek-aralik 1`: 4 adjacent pairs instead of 10 mixed ones). Hypothesis confirmed — GP 26.35 → 16.07 (−39%) — but five frames still do not beat two: drift ratio 93× vs. 84×, local accuracy unchanged. More temporal context did not reduce drift on this budget. The 11% gap is inside the validation seed noise measured later (31%, see Known limitations): inconclusive, not a clear loss |
+| **5-frame context, adjacent pairs only** (`U_uzun_CA1`, 8 h) | GP 16.07 vs. 14.43, LP 0.1732 vs. 0.1726 (validation) | Tests the hypothesis above with one change (`--tek-aralik 1`: 4 adjacent pairs instead of 10 mixed ones). Hypothesis confirmed — GP 26.35 → 16.07 (−39%) — but five frames still do not beat two: drift ratio 93× vs. 84×, local accuracy unchanged. **Re-measured on all 240 validation scans: GP 16.31 vs. 16.87 (mean of two `U_uzun_C` seeds) — a tie** (paired difference −0.56 ± 0.49 mm, better on 52% of scans). The 60-scan ranking had called it a loss; five frames neither help nor hurt |
 
 ## Known limitations
 
@@ -205,9 +205,10 @@ Negative results are results. Each was measured, not assumed.
   −82.9% vs. the reference), so the headline holds and both seeds beat
   `U_uzun` (17.25). The same pair differs by **31% on validation** (14.43 vs.
   18.84) but only 6% on test: the 60-scan validation set is too small to rank
-  close configurations. Validation differences below ~30% — the last ladder
-  step (4.9%), `U_uzun_CA1` vs. `U_uzun_C` (11%) — should be read as
-  inconclusive, not as results.
+  close configurations. Re-measured on all 240 validation scans the seed gap
+  is 4% (16.52 vs. 17.22), and `U_uzun_CA1`'s apparent 11% loss becomes a tie.
+  Ladder rows and Faz 4 rows were ranked on 60 scans: their large steps (69%,
+  24%) stand, small ones (the last ladder step, 4.9%) are inconclusive.
 - **Drift is not solved.** GP/LP fell from 225× to 95× but remains large; the
   remaining error is a scan-specific bias. A single constant correction was
   shown to fail; a scan-adaptive method was not tried.
